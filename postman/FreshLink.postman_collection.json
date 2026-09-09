@@ -1,0 +1,45 @@
+{
+  "info": {
+    "_postman_id": "02cbd727-b4b0-4f02-9ea3-freshlink0001",
+    "name": "FreshLink API",
+    "description": "Collection kiểm thử REST API của FreshLink.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                "pm.test('Service status is UP', function () { const json = pm.response.json(); pm.expect(json.success).to.eql(true); pm.expect(json.data.status).to.eql('UP'); });"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/public/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    { "name": "Auth", "description": "API xác thực sẽ được bổ sung.", "item": [] },
+    { "name": "Orders", "description": "API kế hoạch tuần và đơn hàng.", "item": [] },
+    { "name": "Supply & Batch", "description": "API cung ứng, lô và kiểm nhận.", "item": [] },
+    { "name": "Delivery", "description": "API giao nhận và thu hồi thùng.", "item": [] }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api", "type": "string" }
+  ]
+}

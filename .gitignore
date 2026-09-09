@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+application-secret.yml
+backend/target/
+*.class
+*.log
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
