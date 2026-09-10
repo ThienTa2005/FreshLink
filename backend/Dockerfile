@@ -8,6 +8,7 @@ RUN mvn --batch-mode clean package -DskipTests
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 RUN useradd --system --uid 1001 freshlink
+RUN mkdir -p /app/uploads && chown freshlink /app/uploads
 COPY --from=build /app/target/freshlink-api-*.jar app.jar
 USER freshlink
 EXPOSE 8080
