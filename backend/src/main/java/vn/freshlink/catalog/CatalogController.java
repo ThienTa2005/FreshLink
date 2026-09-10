@@ -16,7 +16,7 @@ public class CatalogController {
     public CatalogController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
     @GetMapping("/public/catalog") public ApiResponse<?> catalog(@RequestParam LocalDate date) {
         return ApiResponse.success(jdbc.queryForList("""
-            SELECT s.sku_id,s.sku_code,s.sku_name,s.base_unit,s.pack_description,s.minimum_order_quantity,s.quantity_step,
+            SELECT s.sku_id,s.product_id,s.sku_code,s.sku_name,s.base_unit,s.pack_size,s.pack_description,s.minimum_order_quantity,s.quantity_step,c.category_id,
               p.description,c.category_name,
               (SELECT pr.selling_unit_price FROM sku_prices pr WHERE pr.sku_id=s.sku_id AND pr.district IS NULL
                 AND pr.valid_from<=? AND (pr.valid_to IS NULL OR pr.valid_to>?) ORDER BY pr.valid_from DESC,pr.sku_price_id DESC LIMIT 1) AS price,

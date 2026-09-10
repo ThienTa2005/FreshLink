@@ -14,6 +14,7 @@ import vn.freshlink.identity.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.*;
 
 @SpringBootTest(properties="app.media.directory=./target/test-uploads")
 @AutoConfigureMockMvc
@@ -38,6 +39,42 @@ class ManagementIntegrationTest {
     }
     String body(Object value) throws Exception { return json.writeValueAsString(value); }
     String bearer(IdentityService.LoginResult login) { return "Bearer "+login.token(); }
+    long create(String path, Object request, IdentityService.LoginResult login) throws Exception {
+        var result=mvc.perform(post(path).header("Authorization",bearer(login)).contentType("application/json").content(body(request)))
+            .andExpect(status().isOk()).andReturn();
+        return json.readTree(result.getResponse().getContentAsString()).get("data").asLong();
+    }
+
+    @Test void catalogueCrudPreservesHistoryAndPreventsOrderingArchivedCategory() throws Exception {
+        var admin=admin(); String code=UUID.randomUUID().toString().substring(0,20);
+        long category=create("/api/operations/categories",Map.of("code",code,"name","Test category","active",true),admin);
+        long product=create("/api/operations/products",Map.of("categoryId",category,"code",code,"name","Test product","active",true),admin);
+        long sku=create("/api/operations/skus",Map.of("productId",product,"code",code,"name","Test SKU","unit","KG",
+            "packSize",1,"packDescription","1 kg","minimum",1,"step",1),admin);
+        mvc.perform(put("/api/operations/skus/"+sku).header("Authorization",bearer(admin)).contentType("application/json")
+            .content(body(Map.of("name","Updated SKU","packDescription","1 kg","minimum",1,"step",0,"active",true))))
+            .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/operations/skus/"+sku).header("Authorization",bearer(admin)).contentType("application/json")
+            .content(body(Map.of("name","Updated SKU","packDescription","1 kg","minimum",1,"step",1,"active",true))))
+            .andExpect(status().isOk());
+        String email=UUID.randomUUID()+"@test.invalid";
+        long org=partners.register(email,PASSWORD,"Buyer","Buyer","RESTAURANT"); partners.approve(admin.user(),org);
+        var buyer=identity.login(email,PASSWORD);
+        mvc.perform(delete("/api/operations/categories/"+category).header("Authorization",bearer(buyer))).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/operations/categories/"+category).header("Authorization",bearer(admin))).andExpect(status().isOk());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM product_skus WHERE sku_id=?",Integer.class,sku));
+        var date=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(3);
+        mvc.perform(get("/api/public/catalog").param("date",date.toString())).andExpect(status().isOk())
+            .andExpect(content().string(not(containsString(code))));
+        long addr=sql.insert("INSERT INTO addresses(organization_id,address_name,address_line,district,address_type) VALUES (?,'Test','Street','District','DELIVERY')",org);
+        jdbc.update("INSERT INTO sku_prices(sku_id,selling_unit_price,valid_from) VALUES (?,1000,'2020-01-01')",sku);
+        mvc.perform(post("/api/orders").header("Authorization",bearer(buyer)).header("Idempotency-Key",UUID.randomUUID().toString())
+            .contentType("application/json").content(body(Map.of("restaurantId",org,"addressId",addr,"date",date.toString(),
+                "startTime","07:00","endTime","09:00","items",List.of(Map.of("skuId",sku,"quantity",1))))))
+            .andExpect(status().isBadRequest());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM customer_orders WHERE restaurant_id=?",Integer.class,org));
+        mvc.perform(delete("/api/operations/skus/9223372036854775807").header("Authorization",bearer(admin))).andExpect(status().isNotFound());
+    }
 
     @Test void changePasswordRequiresOldPasswordAndRevokesEveryToken() throws Exception {
         var admin=admin(); var second=identity.login(admin.user().email(),PASSWORD);

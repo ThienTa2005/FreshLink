@@ -47,7 +47,7 @@ public class OrderingService {
         BigDecimal subtotal=BigDecimal.ZERO;
         for (Line line:r.items()) {
             if (!seen.add(line.skuId())) throw new IllegalArgumentException("Mỗi SKU chỉ xuất hiện một lần");
-            var sku=jdbc.queryForList("SELECT minimum_order_quantity,quantity_step FROM product_skus WHERE sku_id=? AND active=TRUE",line.skuId());
+            var sku=jdbc.queryForList("SELECT s.minimum_order_quantity,s.quantity_step FROM product_skus s JOIN products p ON p.product_id=s.product_id JOIN product_categories c ON c.category_id=p.category_id WHERE s.sku_id=? AND s.active=TRUE AND p.active=TRUE AND c.active=TRUE",line.skuId());
             if (sku.isEmpty()) throw new IllegalArgumentException("SKU không hoạt động");
             BigDecimal minimum=(BigDecimal)sku.get(0).get("minimum_order_quantity"), step=(BigDecimal)sku.get(0).get("quantity_step");
             if (line.quantity().compareTo(minimum)<0 || line.quantity().subtract(minimum).remainder(step).signum()!=0) throw new IllegalArgumentException("Số lượng không đúng mức tối thiểu hoặc bước tăng");
