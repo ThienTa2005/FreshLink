@@ -9,6 +9,22 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: freshlink_test
+          MYSQL_ROOT_PASSWORD: ci_only_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pci_only_password"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    env:
+      FRESHLINK_INTEGRATION: "true"
+      SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/freshlink_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ci_only_password
     defaults:
       run:
         working-directory: backend
@@ -33,5 +49,6 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm install
+      - run: npm ci
+      - run: npm run lint
       - run: npm run build

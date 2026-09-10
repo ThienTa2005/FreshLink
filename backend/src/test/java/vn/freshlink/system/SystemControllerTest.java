@@ -15,6 +15,8 @@ import vn.freshlink.config.WebConfig;
 @WebMvcTest(SystemController.class)
 @Import({SecurityConfig.class, WebConfig.class})
 class SystemControllerTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private vn.freshlink.identity.IdentityService identity;
     @Autowired
     private MockMvc mockMvc;
 

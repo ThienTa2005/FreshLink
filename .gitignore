@@ -3,6 +3,8 @@
 !.env.example
 application-secret.yml
 backend/target/
+backend/uploads/
+frontend/*.tsbuildinfo
 *.class
 *.log
 frontend/node_modules/

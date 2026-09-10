@@ -65,7 +65,7 @@ Không commit mật khẩu thật vào GitHub.
 
 ## Postman
 
-Import hai file trong thư mục `postman`, chọn environment Local rồi chạy request `Public > Health check`.
+Import `postman/FreshLink-MVP.postman_collection.json` và environment Local. Điền email/mật khẩu trong biến cục bộ của Postman, chạy Login để lưu accessToken, rồi chọn các request theo vai trò. Collection cũ chỉ giữ health check ban đầu.
 
 ## Deploy không có tên miền riêng
 
@@ -74,4 +74,12 @@ Import hai file trong thư mục `postman`, chọn environment Local rồi chạ
 - Trên Vercel, đặt `VITE_API_URL=https://<service>.onrender.com/api`.
 - Trên Render, đặt `CORS_ALLOWED_ORIGINS=https://<project>.vercel.app`.
 
-Đây là nền dự án. Các use case đặt hàng, phân nguồn, kiểm lô và giao nhận sẽ phát triển trên cấu trúc này.
+Các luồng MVP đã có frontend/API: tài khoản, đối tác, đặt hàng và kế hoạch tuần, cung ứng, Gate, phân lô, QR, giao/nhận, khiếu nại, thùng và đối soát thủ công.
+
+- [Phân công nhóm 2 người](docs/TEAM_TASKS.md)
+- [Khởi tạo tài khoản, dữ liệu demo và kiểm thử](docs/DEMO.md)
+- [Hợp đồng API](docs/API.md)
+- [Triển khai và lưu tệp bền vững](docs/DEPLOYMENT.md)
+- [Khởi tạo MySQL local/cloud bằng một file SQL](database/README.md)
+
+Ant Design được dùng cho các cổng nghiệp vụ. Token đăng nhập giữ trong bộ nhớ trình duyệt; tải lại trang cần đăng nhập lại. Đọc các giới hạn MVP trong tài liệu demo trước khi nghiệm thu.

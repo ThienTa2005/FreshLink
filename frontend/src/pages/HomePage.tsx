@@ -25,13 +25,14 @@ export default function HomePage() {
         <div>
           <span className="eyebrow">Nền tảng điều phối thực phẩm tươi B2B</span>
           <h1>Đúng nguồn.<br />Đúng chuẩn. Đúng giờ.</h1>
-          <p>FreshLink kết nối nhà hàng với nguồn rau và nấm đã xác minh, kiểm lô tại điểm tập kết và giao theo đơn trong ngày.</p>
+          <p>FreshLink kết nối nhà hàng với nguồn rau và nấm, ghi nhận kiểm lô tại điểm tập kết và điều phối giao theo đơn trong ngày.</p>
           <div className="actions">
-            <Link className="button" to="/login">Bắt đầu sử dụng</Link>
+            <Link className="button" to="/register">Đăng ký hợp tác</Link>
             <a className="button secondary" href="#process">Xem quy trình</a>
           </div>
         </div>
         <aside className="hero-card">
+          <p>Dữ liệu minh họa quy trình, không phải số liệu vận hành thực tế.</p>
           <div><span>Đơn sáng nay</span><strong>12</strong></div>
           <div><span>Lô đã kiểm</span><strong>18/20</strong></div>
           <div><span>Giao trước 10:00</span><strong>95%</strong></div>
