@@ -92,6 +92,8 @@ Lưu ý ID: chi tiết yêu cầu dùng **supply_request_id**; endpoint phản h
 
 Gắn bằng chứng: upload qua `POST /media` trước, dùng `data.id` làm evidenceId. ItemId lấy `data.items[].complaint_item_id` từ chi tiết khiếu nại. Gắn lại cùng bằng chứng là thao tác PUT, không tạo khiếu nại mới. Khiếu nại đã kết thúc trả 409.
 
+Tệp mới được lưu riêng tư trên Cloudinary. Client gọi `GET /media/{fileId}/access` sau khi đăng nhập để nhận `{url,expiresAt,name,mimeType}`; URL có chữ ký chỉ dùng được trong 5 phút. Bản ghi file local từ phiên bản cũ không được di chuyển và trả 410, cần upload lại nếu còn cần sử dụng.
+
 ## Lỗi
 
 - 400: validation, thiếu tham số/header, JSON sai, định dạng ngày/ID sai, quy tắc dữ liệu không hợp lệ.

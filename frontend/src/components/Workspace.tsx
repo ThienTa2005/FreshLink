@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, Typography } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, uploadEvidence } from '../api/http'
+import { api, downloadEvidence, uploadEvidence } from '../api/http'
 
 export type Row = Record<string, unknown>
 export type Option = { value: string | number; label: string }
@@ -12,6 +12,12 @@ function EvidenceInput({ value, onChange }: { value?: number; onChange?: (value:
     const file = e.target.files?.[0]; if (!file) return
     setBusy(true); setError(''); try { const result = await uploadEvidence(file); onChange?.(result.id) } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
   }} />{busy && <span>Đang tải tệp…</span>}{value && <span>Đã lưu bằng chứng #{value}</span>}{error && <Alert type="error" message={error} />}</>
+}
+export function EvidenceLink({ id }: { id: number }) {
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('')
+  return <Space direction="vertical"><Button size="small" loading={busy} onClick={async () => {
+    setBusy(true); setError(''); try { await downloadEvidence(id) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+  }}>Tải tệp</Button>{error && <Typography.Text type="danger">{error}</Typography.Text>}</Space>
 }
 export function useRows(path: string, enabled = true) {
   return useQuery({ queryKey: [path], queryFn: () => api<Row[]>(path), enabled })

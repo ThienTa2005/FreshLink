@@ -1,11 +1,11 @@
 import { Tabs } from 'antd'
-import { ActionForm, DataTable, QrButton, options, tomorrow, useRows } from '../components/Workspace'
+import { ActionForm, DataTable, EvidenceLink, QrButton, options, tomorrow, useRows } from '../components/Workspace'
 
 export default function SupplierPage({ organizationId }: { organizationId: number }) {
   const catalog = useRows(`/public/catalog?date=${tomorrow()}`)
   const requests = useRows(`/supplier/requests?supplierId=${organizationId}`)
   return <Tabs items={[
-    { key: 'passport', label: 'Supplier Passport', children: <><DataTable path={`/supplier/passport?supplierId=${organizationId}`} rowKey="supplier_document_id" columns={[[ 'document_type', 'Loại hồ sơ' ], ['document_number', 'Số giấy tờ'], ['expiry_date', 'Hết hạn'], ['verification_status', 'Xác minh'], ['original_name', 'Tệp']]} /><ActionForm title="Hồ sơ nguồn cung" path="/supplier/passport" fields={[
+    { key: 'passport', label: 'Supplier Passport', children: <><DataTable path={`/supplier/passport?supplierId=${organizationId}`} rowKey="supplier_document_id" columns={[[ 'document_type', 'Loại hồ sơ' ], ['document_number', 'Số giấy tờ'], ['expiry_date', 'Hết hạn'], ['verification_status', 'Xác minh'], ['original_name', 'Tệp']]} actions={row => row.file_id ? <EvidenceLink id={Number(row.file_id)} /> : null} /><ActionForm title="Hồ sơ nguồn cung" path="/supplier/passport" fields={[
       { name: 'type', label: 'Loại hồ sơ', type: 'select', options: [{ value: 'BUSINESS_LICENSE', label: 'Đăng ký kinh doanh' }, { value: 'FOOD_SAFETY', label: 'An toàn thực phẩm' }, { value: 'VIETGAP', label: 'VietGAP' }, { value: 'ORIGIN_PROOF', label: 'Nguồn gốc' }, { value: 'OTHER', label: 'Khác' }] }, { name: 'number', label: 'Số giấy tờ', required: false }, { name: 'issuedDate', label: 'Ngày cấp', type: 'date', required: false }, { name: 'expiryDate', label: 'Ngày hết hạn', type: 'date', required: false }, { name: 'fileId', label: 'Ảnh / PDF hồ sơ', type: 'file' },
     ]} transform={v => ({ ...v, supplierId: organizationId, issuedDate: v.issuedDate || null, expiryDate: v.expiryDate || null })} /></> },
     { key: 'offers', label: 'Năng lực cung ứng', children: <ActionForm title="Năng lực cung ứng" path="/supplier/offers" fields={[

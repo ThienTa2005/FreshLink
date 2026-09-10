@@ -19,8 +19,16 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      - key: MEDIA_DIRECTORY
+      - key: CLOUDINARY_URL
         sync: false
+      - key: CLOUDINARY_FOLDER
+        value: freshlink/evidence
+      - key: CLOUDINARY_ACCESS_SECONDS
+        value: "300"
+      - key: DB_MAX_POOL_SIZE
+        value: "3"
+      - key: DB_MIN_IDLE
+        value: "0"
       - key: BOOTSTRAP_ENABLED
         value: "false"
       - key: DEMO_ENABLED

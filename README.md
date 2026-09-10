@@ -59,6 +59,7 @@ SPRING_DATASOURCE_URL
 SPRING_DATASOURCE_USERNAME
 SPRING_DATASOURCE_PASSWORD
 CORS_ALLOWED_ORIGINS
+CLOUDINARY_URL
 ```
 
 Không commit mật khẩu thật vào GitHub.
@@ -82,4 +83,4 @@ Các luồng MVP đã có frontend/API: tài khoản, đối tác, đặt hàng 
 - [Triển khai và lưu tệp bền vững](docs/DEPLOYMENT.md)
 - [Khởi tạo MySQL local/cloud bằng một file SQL](database/README.md)
 
-Ant Design được dùng cho các cổng nghiệp vụ. Token đăng nhập giữ trong bộ nhớ trình duyệt; tải lại trang cần đăng nhập lại. Đọc các giới hạn MVP trong tài liệu demo trước khi nghiệm thu.
+Ant Design được dùng cho các cổng nghiệp vụ. Token đăng nhập được giữ trong `sessionStorage`: tải lại tab vẫn giữ phiên, đóng tab sẽ xóa phiên phía trình duyệt; token phía server hết hạn sau 8 giờ. Đọc các giới hạn MVP trong tài liệu demo trước khi nghiệm thu.

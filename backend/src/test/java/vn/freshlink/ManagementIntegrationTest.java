@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.hamcrest.Matchers.*;
 
-@SpringBootTest(properties="app.media.directory=./target/test-uploads")
+@SpringBootTest
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named="FRESHLINK_INTEGRATION", matches="true")
 class ManagementIntegrationTest {

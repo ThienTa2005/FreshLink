@@ -24,13 +24,13 @@ File `.env` ở gốc được Docker Compose đọc; Maven không tự đọc f
 
 Chỉ cần push các commit và deploy lại service backend hiện có. Các API cũ giữ nguyên method/path; không cần frontend mới để các API cũ tiếp tục hoạt động.
 
-Đợt thay đổi này không có migration mới, không import lại SQL và không thay đổi lịch sử V1–V5. Giữ Flyway bật. Dữ liệu trên Aiven không bị reset khi redeploy backend.
+Migration V6 bổ sung metadata Cloudinary cho `media_files`. Giữ Flyway bật; không import lại SQL vào database đã chạy migration. Dữ liệu nghiệp vụ trên Aiven không bị reset khi redeploy backend.
 
-`SPRING_DATASOURCE_URL` phải có dạng `jdbc:mysql://HOST:PORT/DATABASE?...`, username/password đặt riêng. Giữ TLS theo môi trường Aiven. Không dùng URL `localhost` hoặc tham số tắt TLS của local trên cloud.
+`SPRING_DATASOURCE_URL` phải có dạng `jdbc:mysql://HOST:PORT/DATABASE?sslMode=REQUIRED&serverTimezone=UTC`, username/password đặt riêng. Không dùng URL `localhost` hoặc tham số tắt TLS của local trên cloud.
 
 `BOOTSTRAP_ENABLED` và `DEMO_ENABLED` chỉ bật lúc khởi tạo; đổi các biến password bootstrap/demo không đặt lại mật khẩu người dùng đã có. API đổi mật khẩu mới yêu cầu mật khẩu hiện tại và thu hồi mọi phiên đăng nhập của tài khoản.
 
-Dockerfile đã tạo `/app/uploads` với quyền ghi cho user chạy Java. Render Free vẫn chỉ lưu file tạm; dùng `MEDIA_DIRECTORY=/tmp/freshlink-uploads` khi test, persistent disk/object storage khi cần giữ file qua redeploy. Việc sửa quyền thư mục không biến filesystem tạm thành lưu trữ bền vững.
+Đặt `CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name` ở local/Render. Backend upload PNG/JPEG/PDF tối đa 10 MB dạng `authenticated`; không đưa secret vào frontend. File local cũ không được migrate và API trả 410 nếu được yêu cầu tải.
 
 ## Kiểm thử
 
@@ -63,7 +63,7 @@ Test tạo fixture có mã riêng và giữ dữ liệu trong database test. Dù
 - CRUD danh mục dùng ngừng hoạt động, không xóa cứng lịch sử.
 - Địa chỉ đã được tham chiếu không sửa tại chỗ; tạo địa chỉ mới rồi ngừng dùng địa chỉ cũ.
 - Nhân viên có nhiều tổ chức và tài khoản quản trị không được sửa bằng API nhân viên thông thường.
-- Chưa có reset mật khẩu qua email, refresh token, tích hợp chuyển khoản, GPS realtime hoặc object storage.
+- Chưa có reset mật khẩu qua email, refresh token, tích hợp chuyển khoản hoặc GPS realtime.
 - Các danh sách quản lý mới trả mảng đầy đủ, chưa có phân trang phía server; một số danh sách MVP cũ giới hạn 200/700 dòng như trước. Cần thêm hợp đồng phân trang trước khi dữ liệu lớn.
 - Tệp riêng vẫn dùng quy tắc truy cập hiện có (người upload hoặc vai trò nội bộ được phép); không biến các ID bằng chứng thành URL công khai.
 - Không xóa migration hoặc các module đang được Spring sử dụng. Dependency devtools không cần cho deployment đã được bỏ; thư mục `target` là build output và không commit.

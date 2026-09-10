@@ -1,6 +1,6 @@
 # Khởi tạo MySQL bằng một file
 
-`freshlink_mysql_database.sql` gồm tạo database `freshlink_db`, toàn bộ bảng/view và cập nhật V1–V5, cùng dữ liệu khởi tạo: 11 vai trò, 2 nhóm sản phẩm, 4 sản phẩm, 4 SKU và 2 loại tài sản tái sử dụng. File không chứa mật khẩu, tài khoản đăng nhập, đơn hàng hoặc dữ liệu đang có trong MySQL local. Đây là bộ khởi tạo, không phải bản sao lưu.
+`freshlink_mysql_database.sql` gồm tạo database `freshlink_db`, toàn bộ bảng/view và cập nhật V1–V6, cùng dữ liệu khởi tạo: 11 vai trò, 2 nhóm sản phẩm, 4 sản phẩm, 4 SKU và 2 loại tài sản tái sử dụng. File không chứa mật khẩu, tài khoản đăng nhập, đơn hàng hoặc dữ liệu đang có trong MySQL local. Đây là bộ khởi tạo, không phải bản sao lưu.
 
 Chỉ chạy một lần trên database mới/rỗng, trước khi khởi động backend. Không import vào database đã chạy Flyway hoặc có dữ liệu. Không dùng tùy chọn tiếp tục khi lỗi (`--force`): MySQL DDL không rollback toàn bộ file; nếu import lỗi phải xử lý database khởi tạo dở trước khi thử lại. Không xóa database đang có dữ liệu để chạy file này.
 
@@ -42,20 +42,20 @@ exit
 
 Nếu `.env` đổi `MYSQL_DATABASE`, sửa tên database trong bản SQL dùng để import cho khớp. Không chạy backend trước bước import; backend có thể tự tạo schema bằng Flyway.
 
-## Kết nối backend sau khi import: baseline V5
+## Kết nối backend sau khi import: baseline V6
 
-File đã chứa V1–V5 nhưng chưa có lịch sử Flyway. Chỉ sau khi import hoàn tất thành công, khởi động backend lần đầu với hai biến sau, bên cạnh thông tin datasource trỏ đúng database vừa import:
+File đã chứa V1–V6 nhưng chưa có lịch sử Flyway. Chỉ sau khi import hoàn tất thành công, khởi động backend lần đầu với hai biến sau, bên cạnh thông tin datasource trỏ đúng database vừa import:
 
 ```text
 SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
-SPRING_FLYWAY_BASELINE_VERSION=5
+SPRING_FLYWAY_BASELINE_VERSION=6
 ```
 
 Với backend chạy Maven trong PowerShell:
 
 ```powershell
 $env:SPRING_FLYWAY_BASELINE_ON_MIGRATE = 'true'
-$env:SPRING_FLYWAY_BASELINE_VERSION = '5'
+$env:SPRING_FLYWAY_BASELINE_VERSION = '6'
 cd backend
 mvn spring-boot:run
 ```
@@ -67,7 +67,7 @@ services:
   backend:
     environment:
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
-      SPRING_FLYWAY_BASELINE_VERSION: "5"
+      SPRING_FLYWAY_BASELINE_VERSION: "6"
 ```
 
 Rồi chạy:
@@ -77,7 +77,7 @@ docker compose -f docker-compose.yml -f docker-compose.import.yml up -d --build
 docker compose logs --tail=100 backend
 ```
 
-Kiểm tra backend health và `SELECT * FROM flyway_schema_history;` có baseline phiên bản 5 thành công. Sau đó bỏ hai biến baseline (Maven: `Remove-Item Env:SPRING_FLYWAY_BASELINE_ON_MIGRATE, Env:SPRING_FLYWAY_BASELINE_VERSION` sau khi dừng tiến trình; cloud: bỏ trong dashboard). Với Docker, chạy lại `docker compose up -d` không dùng file override. Các migration V6 trở đi vẫn được Flyway chạy bình thường. Không bật baseline cho database khác chưa được kiểm tra.
+Kiểm tra backend health và `SELECT * FROM flyway_schema_history;` có baseline phiên bản 6 thành công. Sau đó bỏ hai biến baseline (Maven: `Remove-Item Env:SPRING_FLYWAY_BASELINE_ON_MIGRATE, Env:SPRING_FLYWAY_BASELINE_VERSION` sau khi dừng tiến trình; cloud: bỏ trong dashboard). Với Docker, chạy lại `docker compose up -d` không dùng file override. Các migration V7 trở đi vẫn được Flyway chạy bình thường. Không bật baseline cho database khác chưa được kiểm tra.
 
 Nếu để backend tự tạo database schema bằng Flyway như quy trình cũ thì không import file SQL và không bật baseline.
 
@@ -85,7 +85,7 @@ Nếu để backend tự tạo database schema bằng Flyway như quy trình cũ
 
 Chọn database MySQL rỗng do nhà cung cấp cấp. Nếu không có quyền `CREATE DATABASE`, bỏ khối `CREATE DATABASE ...;` và `USE freshlink_db;` trong bản SQL dùng để import, rồi chọn database đích trong công cụ SQL. Giữ nguyên phần còn lại, dùng kết nối TLS theo cấu hình của dịch vụ. Không tự tạo MySQL user hoặc cấp quyền toàn cục trong script.
 
-Import thành công rồi cấu hình datasource backend trỏ tới database đó và baseline V5 một lần như trên. Không dùng thông tin kết nối local cho cloud. Deploy backend không tự chuyển dữ liệu local lên cloud.
+Import thành công rồi cấu hình datasource backend trỏ tới database đó và baseline V6 một lần như trên. Không dùng thông tin kết nối local cho cloud. Deploy backend không tự chuyển dữ liệu local lên cloud.
 
 ## Tài khoản và dữ liệu demo nghiệp vụ
 

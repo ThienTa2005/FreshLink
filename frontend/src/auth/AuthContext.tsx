@@ -1,33 +1,101 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api, setToken } from '../api/http'
+import { ApiError, api, setToken, warmBackend } from '../api/http'
+
 export type Membership = { organizationId: number; organizationName: string; organizationType: string; roles: string[] }
 export type Actor = { userId: number; email: string; fullName: string; memberships: Membership[] }
-type Auth = { user: Actor | null; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void> }
+export type AuthStatus = 'initializing' | 'anonymous' | 'authenticated' | 'unavailable'
+type StoredSession = { token: string; expiresAt: string }
+type Auth = {
+  user: Actor | null
+  status: AuthStatus
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  refresh: () => Promise<void>
+  retrySession: () => Promise<void>
+  discardSession: () => void
+}
+
+const SESSION_KEY = 'freshlink:session'
 const Context = createContext<Auth | null>(null)
+
+function readSession(): StoredSession | null {
+  try {
+    const value = sessionStorage.getItem(SESSION_KEY)
+    if (!value) return null
+    const session = JSON.parse(value) as Partial<StoredSession>
+    if (!session.token || !session.expiresAt || Date.parse(session.expiresAt) <= Date.now()) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return session as StoredSession
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY)
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Actor | null>(null)
+  const [status, setStatus] = useState<AuthStatus>('initializing')
   const client = useQueryClient()
-  useEffect(() => {
-    const expire = () => { setToken(null); setUser(null); client.clear() }
-    window.addEventListener('freshlink:expired', expire)
-    return () => window.removeEventListener('freshlink:expired', expire)
+  const initialized = useRef(false)
+
+  const discardSession = useCallback(() => {
+    setToken(null)
+    sessionStorage.removeItem(SESSION_KEY)
+    setUser(null)
+    setStatus('anonymous')
+    client.clear()
   }, [client])
+
+  const restoreSession = useCallback(async () => {
+    const session = readSession()
+    if (!session) { discardSession(); return }
+    setToken(session.token)
+    setStatus('initializing')
+    try {
+      const actor = await api<Actor>('/auth/me')
+      setUser(actor)
+      setStatus('authenticated')
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) discardSession()
+      else { setUser(null); setStatus('unavailable') }
+    }
+  }, [discardSession])
+
+  useEffect(() => {
+    const expire = () => discardSession()
+    window.addEventListener('freshlink:expired', expire)
+    if (!initialized.current) { initialized.current = true; void restoreSession() }
+    return () => window.removeEventListener('freshlink:expired', expire)
+  }, [discardSession, restoreSession])
+
   async function login(email: string, password: string) {
-    const result = await api<{ token: string; user: Actor }>('/public/auth/login', 'POST', { email, password })
-    client.clear(); setToken(result.token); setUser(result.user)
+    await warmBackend()
+    const result = await api<{ token: string; expiresAt: string; user: Actor }>('/public/auth/login', 'POST', { email, password })
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: result.token, expiresAt: result.expiresAt }))
+    client.clear(); setToken(result.token); setUser(result.user); setStatus('authenticated')
   }
+
   async function logout() {
     try { await api('/auth/logout', 'POST') }
-    finally { setToken(null); setUser(null); client.clear() }
+    finally { discardSession() }
   }
-  return <Context.Provider value={{ user, login, logout }}>{children}</Context.Provider>
+
+  async function refresh() {
+    setUser(await api<Actor>('/auth/me'))
+  }
+
+  return <Context.Provider value={{ user, status, login, logout, refresh, retrySession: restoreSession, discardSession }}>{children}</Context.Provider>
 }
+
 export function useAuth() {
   const context = useContext(Context)
   if (!context) throw new Error('AuthProvider is required')
   return context
 }
+
 export function portals(user: Actor) {
   const roles = user.memberships.flatMap(m => m.roles)
   const admin = roles.includes('SYSTEM_ADMIN')

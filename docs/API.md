@@ -17,7 +17,7 @@ Prefix `/api`. Response thành công: `{success:true,data,message,timestamp}`. L
 | Điều phối | `GET /operations/lookup`, `/operations/demand`, `/operations/offers`, `/operations/orders`, `/operations/stops`, `/operations/dashboard`; `POST /operations/supply-requests` |
 | Chất lượng | `GET/POST /batches`, `POST /batches/{id}/inspect`, `POST /allocations` |
 | Giao nhận | `GET/POST /trips`, `GET /trips/{id}`, `POST /trips/{id}/start`, `POST /stops/{id}/deliver`, `POST /stops/{id}/receive` |
-| Bằng chứng | `POST /media` multipart với trường `file`; `GET /media/{id}` có xác thực |
+| Bằng chứng | `POST /media` multipart với trường `file`; `GET /media/{id}/access` trả URL Cloudinary riêng tư có chữ ký, hiệu lực 5 phút |
 | QR | `POST /qr/{type}/{id}` với BATCH, DELIVERY_PACKAGE (điểm giao) hoặc RETURNABLE_ASSET |
 | Khiếu nại | `GET/POST /claims`, `POST /claims/{id}/resolve` |
 | Thùng | `GET/POST /assets`, `POST /assets/{id}/move` |

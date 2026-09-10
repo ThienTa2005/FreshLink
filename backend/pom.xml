@@ -17,8 +17,14 @@
     <properties>
         <java.version>17</java.version>
         <springdoc.version>2.8.9</springdoc.version>
+        <cloudinary.version>2.4.0</cloudinary.version>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http5</artifactId>
+            <version>${cloudinary.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>

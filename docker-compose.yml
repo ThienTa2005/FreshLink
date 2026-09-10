@@ -28,14 +28,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-freshlink_dev}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-      MEDIA_DIRECTORY: /data/uploads
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+      CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-freshlink/evidence}
+      CLOUDINARY_ACCESS_SECONDS: ${CLOUDINARY_ACCESS_SECONDS:-300}
+      DB_MAX_POOL_SIZE: ${DB_MAX_POOL_SIZE:-3}
+      DB_MIN_IDLE: ${DB_MIN_IDLE:-0}
       BOOTSTRAP_ENABLED: ${BOOTSTRAP_ENABLED:-false}
       BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL:-}
       BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
       DEMO_ENABLED: ${DEMO_ENABLED:-false}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
-    volumes:
-      - freshlink_media:/data/uploads
     ports:
       - "8080:8080"
     depends_on:
@@ -55,4 +57,3 @@ services:
 
 volumes:
   freshlink_mysql_data:
-  freshlink_media:

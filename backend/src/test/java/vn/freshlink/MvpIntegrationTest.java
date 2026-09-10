@@ -21,10 +21,13 @@ import vn.freshlink.assets.*;
 import vn.freshlink.billing.*;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.junit.jupiter.api.BeforeEach;
+import vn.freshlink.common.MediaStorage;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties="app.media.directory=./target/test-uploads")
+@SpringBootTest
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named="FRESHLINK_INTEGRATION",matches="true")
 class MvpIntegrationTest {
@@ -35,6 +38,12 @@ class MvpIntegrationTest {
     @Autowired OrderingService ordering; @Autowired SourcingService sourcing; @Autowired QualityService quality;
     @Autowired DeliveryService delivery; @Autowired TraceController trace; @Autowired AssetController assets; @Autowired BillingController billing;
     @Autowired WeeklyPlanController weekly; @Autowired SettlementController settlements;
+    @MockitoBean MediaStorage mediaStorage;
+    @BeforeEach void mockMediaStorage() {
+        org.mockito.Mockito.when(mediaStorage.upload(org.mockito.ArgumentMatchers.any(byte[].class),org.mockito.ArgumentMatchers.anyString()))
+            .thenAnswer(call -> new MediaStorage.Stored("test-asset",call.getArgument(1),"raw","authenticated","pdf",1,
+                ((byte[])call.getArgument(0)).length));
+    }
     BigDecimal q(String value) {return new BigDecimal(value);}
     String key() {return UUID.randomUUID().toString();}
     Actor actor(String type,String role) {
