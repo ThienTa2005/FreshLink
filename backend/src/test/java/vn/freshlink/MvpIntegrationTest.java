@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfEnvironmentVariable(named="FRESHLINK_INTEGRATION",matches="true")
 class MvpIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired JdbcTemplate jdbc; @Autowired Sql sql; @Autowired PasswordEncoder passwords;
     @Autowired IdentityService identity; @Autowired PartnerService partners;
     @Autowired OrderingService ordering; @Autowired SourcingService sourcing; @Autowired QualityService quality;
@@ -160,5 +161,36 @@ class MvpIntegrationTest {
         String settlementKey=key();var payout=new SettlementController.Pay("TEST-PAYOUT");
         assertEquals(settlements.pay(admin,settlement,payout,settlementKey).data(),settlements.pay(admin,settlement,payout,settlementKey).data());
         assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->settlements.create(admin,new SettlementController.Settlement(batch,q("0"),"Duplicate"),key()));
+        String supplierToken="Bearer "+identity.login(supplier.email(),"Integration-only-123").token();
+        String otherSupplierToken="Bearer "+identity.login(supplier2.email(),"Integration-only-123").token();
+        String adminToken="Bearer "+identity.login(admin.email(),"Integration-only-123").token();
+        String restaurantToken="Bearer "+identity.login(restaurant.email(),"Integration-only-123").token();
+        String otherToken="Bearer "+identity.login(other.email(),"Integration-only-123").token();
+        mvc.perform(get("/api/batches/"+batch).header("Authorization",supplierToken)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.inspections[0].final_result").value("PARTIAL_PASS"))
+            .andExpect(jsonPath("$.data.allocations").doesNotExist());
+        mvc.perform(get("/api/batches/"+batch).header("Authorization",otherSupplierToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/batches/"+batch).header("Authorization",adminToken)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.allocations[0].order_id").value(order));
+        mvc.perform(get("/api/supplier/requests/"+request).header("Authorization",supplierToken)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.delivery_address.address_id").value(dock));
+        mvc.perform(get("/api/supplier/requests/"+request).header("Authorization",otherSupplierToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/assets/"+asset+"/history").header("Authorization",adminToken)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(4));
+        var claimResult=mvc.perform(post("/api/claims").header("Authorization",restaurantToken).header("Idempotency-Key",key())
+            .contentType("application/json").content(json.writeValueAsString(Map.of("orderItemId",item,"batchId",batch,"quantity",1,"description","Test claim"))))
+            .andExpect(status().isOk()).andReturn();
+        long claim=json.readTree(claimResult.getResponse().getContentAsString()).get("data").asLong();
+        mvc.perform(get("/api/claims/"+claim).header("Authorization",otherToken)).andExpect(status().isForbidden());
+        var detail=mvc.perform(get("/api/claims/"+claim).header("Authorization",restaurantToken)).andExpect(status().isOk()).andReturn();
+        long claimItem=json.readTree(detail.getResponse().getContentAsString()).at("/data/items/0/complaint_item_id").asLong();
+        var upload=mvc.perform(multipart("/api/media").file(new org.springframework.mock.web.MockMultipartFile("file","proof.pdf","application/pdf","%PDF-test-evidence".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+            .header("Authorization",restaurantToken)).andExpect(status().isOk()).andReturn();
+        long file=json.readTree(upload.getResponse().getContentAsString()).at("/data/id").asLong();
+        String evidence=json.writeValueAsString(Map.of("itemId",claimItem,"evidenceId",file));
+        mvc.perform(put("/api/claims/"+claim+"/evidence").header("Authorization",otherToken).contentType("application/json").content(evidence)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/claims/"+claim+"/evidence").header("Authorization",restaurantToken).contentType("application/json").content(evidence)).andExpect(status().isOk());
+        mvc.perform(post("/api/claims/"+claim+"/resolve").header("Authorization",adminToken).contentType("application/json").content("{\"resolution\":\"Reviewed\"}")).andExpect(status().isOk());
+        mvc.perform(put("/api/claims/"+claim+"/evidence").header("Authorization",restaurantToken).contentType("application/json").content(evidence)).andExpect(status().isConflict());
     }
 }

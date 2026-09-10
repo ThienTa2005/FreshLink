@@ -90,6 +90,42 @@ class ManagementIntegrationTest {
         assertThrows(org.springframework.security.authentication.BadCredentialsException.class,()->identity.login(admin.user().email(),PASSWORD));
         assertNotNull(identity.login(admin.user().email(),"Replacement-test-456"));
     }
+    @Test void addressesAreScopedAndReferencedAddressesCannotBeRewritten() throws Exception {
+        var admin=admin(); String email=UUID.randomUUID()+"@test.invalid";
+        long organization=partners.register(email,PASSWORD,"Buyer","Buyer","RESTAURANT"); partners.approve(admin.user(),organization);
+        var buyer=identity.login(email,PASSWORD);
+        long address=sql.insert("INSERT INTO addresses(organization_id,address_name,address_line,district,address_type) VALUES (?,'Old','Street','District','DELIVERY')",organization);
+        String payload=body(Map.of("name","New","address","New street","district","District","city","City","contactName","Receiver","phone","0000000000"));
+        mvc.perform(put("/api/addresses/"+address).header("Authorization",bearer(buyer)).contentType("application/json").content(payload)).andExpect(status().isOk());
+        String otherEmail=UUID.randomUUID()+"@test.invalid";
+        long otherOrg=partners.register(otherEmail,PASSWORD,"Other","Other","RESTAURANT"); partners.approve(admin.user(),otherOrg);
+        var other=identity.login(otherEmail,PASSWORD);
+        mvc.perform(delete("/api/addresses/"+address).header("Authorization",bearer(other))).andExpect(status().isForbidden());
+        sql.insert("INSERT INTO customer_orders(order_code,restaurant_id,delivery_address_id,delivery_date,receiving_start_time,receiving_end_time,created_by) VALUES (?,?,?,CURRENT_DATE(),'07:00','09:00',?)",
+            UUID.randomUUID().toString().substring(0,24),organization,address,buyer.user().userId());
+        mvc.perform(put("/api/addresses/"+address).header("Authorization",bearer(buyer)).contentType("application/json").content(payload)).andExpect(status().isConflict());
+        mvc.perform(delete("/api/addresses/"+address).header("Authorization",bearer(buyer))).andExpect(status().isOk());
+        assertEquals("New street",jdbc.queryForObject("SELECT address_line FROM addresses WHERE address_id=?",String.class,address));
+    }
+    @Test void supplierOffersCannotBreakReservationsOrCrossOrganizations() throws Exception {
+        var admin=admin(); String email=UUID.randomUUID()+"@test.invalid";
+        long organization=partners.register(email,PASSWORD,"Supplier","Supplier","SUPPLIER"); partners.approve(admin.user(),organization);
+        var supplier=identity.login(email,PASSWORD);
+        long offer=create("/api/supplier/offers",Map.of("supplierId",organization,"skuId",1,"date",java.time.LocalDate.now().plusDays(3).toString(),"quantity",10,"price",1000),supplier);
+        jdbc.update("UPDATE supplier_sku_offers SET reserved_quantity=5,status='PARTIALLY_RESERVED' WHERE supplier_offer_id=?",offer);
+        mvc.perform(put("/api/supplier/offers/"+offer).header("Authorization",bearer(supplier)).contentType("application/json")
+            .content(body(Map.of("quantity",4,"price",1000)))).andExpect(status().isConflict());
+        mvc.perform(put("/api/supplier/offers/"+offer).header("Authorization",bearer(supplier)).contentType("application/json")
+            .content(body(Map.of("quantity",10,"price",2000)))).andExpect(status().isConflict());
+        mvc.perform(delete("/api/supplier/offers/"+offer).header("Authorization",bearer(supplier))).andExpect(status().isConflict());
+        mvc.perform(put("/api/supplier/offers/"+offer).header("Authorization",bearer(supplier)).contentType("application/json")
+            .content(body(Map.of("quantity",12,"price",1000)))).andExpect(status().isOk());
+        String otherEmail=UUID.randomUUID()+"@test.invalid";
+        long otherOrg=partners.register(otherEmail,PASSWORD,"Other","Other","SUPPLIER"); partners.approve(admin.user(),otherOrg);
+        var other=identity.login(otherEmail,PASSWORD);
+        mvc.perform(get("/api/supplier/offers").param("supplierId",String.valueOf(organization)).header("Authorization",bearer(other))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/supplier/offers").param("supplierId",String.valueOf(organization)).header("Authorization",bearer(supplier))).andExpect(status().isOk());
+    }
     @Test void staffManagementCannotModifyAdminAndRevokesDisabledStaff() throws Exception {
         var admin=admin(); String email=UUID.randomUUID()+"@test.invalid";
         staff.create(admin.user(),new StaffController.Staff(email,PASSWORD,"Driver",List.of("DRIVER")));

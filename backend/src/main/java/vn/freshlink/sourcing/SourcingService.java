@@ -19,6 +19,9 @@ public class SourcingService {
         @NotNull @DecimalMin("0") @Digits(integer=13,fraction=2) BigDecimal price) {}
     @Transactional public long offer(Actor actor,Offer o) {
         actor.requireOrganization(o.supplierId(),"SUPPLIER_MANAGER","SUPPLIER_STAFF");
+        if(o.date().isBefore(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) throw new IllegalArgumentException("Ngày cung ứng không được ở quá khứ");
+        if(jdbc.queryForObject("SELECT COUNT(*) FROM product_skus s JOIN products p ON p.product_id=s.product_id JOIN product_categories c ON c.category_id=p.category_id WHERE s.sku_id=? AND s.active=TRUE AND p.active=TRUE AND c.active=TRUE",Integer.class,o.skuId())!=1)
+            throw new IllegalArgumentException("SKU hoặc nhóm sản phẩm không hoạt động");
         return sql.insert("INSERT INTO supplier_sku_offers(supplier_id,sku_id,available_date,available_quantity,supplier_unit_price,status) VALUES (?,?,?,?,?,'AVAILABLE')",o.supplierId(),o.skuId(),o.date(),o.quantity(),o.price());
     }
     public record Request(@NotNull Long offerId,@NotNull Long orderItemId,@NotNull Long crossDockId,
