@@ -75,6 +75,14 @@ class ManagementIntegrationTest {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM customer_orders WHERE restaurant_id=?",Integer.class,org));
         mvc.perform(delete("/api/operations/skus/9223372036854775807").header("Authorization",bearer(admin))).andExpect(status().isNotFound());
     }
+    @Test void legacyCatalogueEndpointsRemainCompatible() throws Exception {
+        var admin=admin(); String code=UUID.randomUUID().toString().substring(0,20);
+        mvc.perform(get("/api/public/categories")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].category_id").exists());
+        long sku=create("/api/operations/catalog",Map.of("categoryId",1,"productCode",code,"name","Legacy",
+            "skuCode",code,"packDescription","Per kg","unit","KG","packSize",1,"minimum",1,"step",1),admin);
+        assertEquals(code,jdbc.queryForObject("SELECT sku_code FROM product_skus WHERE sku_id=?",String.class,sku));
+    }
 
     @Test void changePasswordRequiresOldPasswordAndRevokesEveryToken() throws Exception {
         var admin=admin(); var second=identity.login(admin.user().email(),PASSWORD);

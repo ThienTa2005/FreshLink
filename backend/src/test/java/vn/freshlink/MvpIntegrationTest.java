@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.devtools.restart.enabled=false","app.media.directory=./target/test-uploads"})
+@SpringBootTest(properties="app.media.directory=./target/test-uploads")
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named="FRESHLINK_INTEGRATION",matches="true")
 class MvpIntegrationTest {

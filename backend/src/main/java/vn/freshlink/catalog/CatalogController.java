@@ -13,7 +13,8 @@ import vn.freshlink.common.api.ApiResponse;
 @RestController @RequestMapping("/api")
 public class CatalogController {
     private final JdbcTemplate jdbc;
-    public CatalogController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
+    private final vn.freshlink.common.Sql sql;
+    public CatalogController(JdbcTemplate jdbc, vn.freshlink.common.Sql sql) {this.jdbc=jdbc;this.sql=sql;}
     @GetMapping("/public/catalog") public ApiResponse<?> catalog(@RequestParam LocalDate date) {
         return ApiResponse.success(jdbc.queryForList("""
             SELECT s.sku_id,s.product_id,s.sku_code,s.sku_name,s.base_unit,s.pack_size,s.pack_description,s.minimum_order_quantity,s.quantity_step,c.category_id,
@@ -32,5 +33,17 @@ public class CatalogController {
         actor.requireRole("OPERATIONS_COORDINATOR");
         jdbc.update("INSERT INTO sku_prices(sku_id,selling_unit_price,valid_from,created_by) VALUES (?,?,?,?)",p.skuId(),p.price(),java.sql.Timestamp.from(p.date().atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant()),actor.userId());
         return ApiResponse.success(null,"Đã lưu giá; đơn cũ giữ nguyên giá đã chốt");
+    }
+    @GetMapping("/public/categories") public ApiResponse<?> categories() {return ApiResponse.success(jdbc.queryForList("SELECT category_id,category_name FROM product_categories WHERE active=TRUE"),"Nhóm sản phẩm");}
+    public record Sku(@NotNull Long categoryId,@NotBlank @Size(max=40) String productCode,@NotBlank @Size(max=150) String name,
+        @NotBlank @Size(max=50) String skuCode,@NotBlank @Size(max=200) String packDescription,
+        @NotBlank @Pattern(regexp="KG|GRAM|PACK|BAG|BOX|BUNCH|CRATE") String unit,
+        @NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal packSize,
+        @NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal minimum,
+        @NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal step) {}
+    @PostMapping("/operations/catalog") @org.springframework.transaction.annotation.Transactional public ApiResponse<?> create(@AuthenticationPrincipal Actor a,@Valid @RequestBody Sku r) {
+        a.requireRole("OPERATIONS_COORDINATOR");
+        long product=sql.insert("INSERT INTO products(category_id,product_code,product_name) VALUES (?,?,?)",r.categoryId(),r.productCode(),r.name());
+        return ApiResponse.success(sql.insert("INSERT INTO product_skus(product_id,sku_code,sku_name,base_unit,pack_size,pack_description,minimum_order_quantity,quantity_step) VALUES (?,?,?,?,?,?,?,?)",product,r.skuCode(),r.name(),r.unit(),r.packSize(),r.packDescription(),r.minimum(),r.step()),"Đã tạo sản phẩm và SKU");
     }
 }
