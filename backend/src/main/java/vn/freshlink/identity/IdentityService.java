@@ -53,14 +53,27 @@ public class IdentityService {
     }
     public void logout(String token) { jdbc.update("DELETE FROM api_tokens WHERE token_hash=?", hash(token)); }
     public Actor actor(Account account) {
-        var memberships = jdbc.query("""
-            SELECT m.member_id,o.organization_id,o.organization_name,o.organization_type
+        var rows = jdbc.queryForList("""
+            SELECT m.member_id,o.organization_id,o.organization_name,o.organization_type,r.role_code
             FROM organization_members m JOIN organizations o ON o.organization_id=m.organization_id
+            LEFT JOIN member_roles mr ON mr.member_id=m.member_id
+            LEFT JOIN roles r ON r.role_id=mr.role_id
             WHERE m.user_id=? AND m.status='ACTIVE' AND o.status='ACTIVE'
-            """, (rs, n) -> new Actor.Membership(rs.getLong("organization_id"), rs.getString("organization_name"),
-                rs.getString("organization_type"), jdbc.queryForList("""
-                    SELECT r.role_code FROM member_roles mr JOIN roles r ON r.role_id=mr.role_id WHERE mr.member_id=?
-                    """, String.class, rs.getLong("member_id"))), account.id);
+            ORDER BY m.member_id,r.role_code
+            """, account.id);
+        var grouped = new LinkedHashMap<Long, Actor.Membership>();
+        for (var row : rows) {
+            long memberId = ((Number) row.get("member_id")).longValue();
+            var membership = grouped.computeIfAbsent(memberId, ignored -> new Actor.Membership(
+                ((Number) row.get("organization_id")).longValue(),
+                (String) row.get("organization_name"),
+                (String) row.get("organization_type"),
+                new ArrayList<>()));
+            if (row.get("role_code") != null) membership.roles().add((String) row.get("role_code"));
+        }
+        var memberships = grouped.values().stream()
+            .map(m -> new Actor.Membership(m.organizationId(), m.organizationName(), m.organizationType(), List.copyOf(m.roles())))
+            .toList();
         return new Actor(account.id, account.email, account.fullName, memberships);
     }
     public static String hash(String value) {

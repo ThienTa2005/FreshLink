@@ -14,8 +14,25 @@ export class ApiError extends Error {
 let token: string | null = null
 let warmInFlight: Promise<void> | null = null
 let lastWarmAt = 0
+let sessionCheckInFlight: Promise<void> | null = null
 
 export function setToken(value: string | null) { token = value }
+
+function confirmSessionExpired(): Promise<void> {
+  if (!token) return Promise.resolve()
+  if (sessionCheckInFlight) return sessionCheckInFlight
+  const currentToken = token
+  sessionCheckInFlight = fetchWithTimeout(`${API_URL}/auth/me`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${currentToken}` },
+  })
+    .then(response => {
+      if (response.status === 401 && token === currentToken)
+        window.dispatchEvent(new Event('freshlink:expired'))
+    })
+    .catch(() => undefined)
+    .finally(() => { sessionCheckInFlight = null })
+  return sessionCheckInFlight
+}
 
 async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
@@ -45,7 +62,7 @@ export function warmBackend(): Promise<void> {
 
 async function readResponse<T>(response: Response): Promise<T> {
   const result = await response.json().catch(() => null) as ApiResponse<T> | null
-  if (response.status === 401 && token) window.dispatchEvent(new Event('freshlink:expired'))
+  if (response.status === 401 && token) void confirmSessionExpired()
   if (!response.ok || !result?.success)
     throw new ApiError(result?.message ?? `Không thể xử lý yêu cầu (${response.status})`, 'http', response.status)
   return result.data
