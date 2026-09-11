@@ -29,7 +29,9 @@ public class BillingController {
             BigDecimal total=(BigDecimal)order.get("total_amount");
             if(paid.add(r.amount()).compareTo(total)>0) throw new IllegalArgumentException("Khoản thu vượt số còn phải trả");
             long payment=sql.insert("INSERT INTO payments(payment_code,order_id,restaurant_id,payment_type,method,amount,status,external_reference,paid_at,confirmed_by,confirmed_at) VALUES (?,?,?,'CUSTOMER_PAYMENT',?,?,'CONFIRMED',?,UTC_TIMESTAMP(3),?,UTC_TIMESTAMP(3))","PAY-"+UUID.randomUUID(),r.orderId(),order.get("restaurant_id"),r.method(),r.amount(),r.reference(),a.userId());
-            jdbc.update("UPDATE customer_orders SET payment_status=? WHERE order_id=?",paid.add(r.amount()).compareTo(total)==0?"PAID":"PARTIALLY_PAID",r.orderId());return payment;
+            String paymentStatus=paid.add(r.amount()).compareTo(total)==0?"PAID":"PARTIALLY_PAID";
+            jdbc.update("UPDATE customer_orders SET payment_status=? WHERE order_id=?",paymentStatus,r.orderId());
+            jdbc.update("UPDATE invoices SET status=? WHERE order_id=? AND status<>'VOID'",paymentStatus,r.orderId());return payment;
         });return ApiResponse.success(id,"Đã ghi nhận thanh toán thủ công");
     }
     @GetMapping("/suppliers") public ApiResponse<?> suppliers(@AuthenticationPrincipal Actor a,@RequestParam(required=false) Long supplierId) {

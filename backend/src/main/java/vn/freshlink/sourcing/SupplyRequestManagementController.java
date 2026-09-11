@@ -1,0 +1,25 @@
+package vn.freshlink.sourcing;
+
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+import jakarta.validation.constraints.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import vn.freshlink.common.api.ApiResponse;
+import vn.freshlink.identity.Actor;
+
+@RestController @RequestMapping("/api/operations/supply-requests")
+public class SupplyRequestManagementController {
+ private final JdbcTemplate jdbc; public SupplyRequestManagementController(JdbcTemplate jdbc){this.jdbc=jdbc;}
+ public record Update(@NotNull LocalTime arrivalTime,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotNull @DecimalMin("0") @DecimalMax("100") BigDecimal commissionRate){}
+ public record Reason(@NotBlank @Size(max=500) String reason){}
+ private Map<String,Object> lock(long id){var r=jdbc.queryForList("SELECT r.*,i.supply_request_item_id,i.supplier_offer_id,i.requested_quantity,i.status item_status FROM supply_requests r JOIN supply_request_items i ON i.supply_request_id=r.supply_request_id WHERE r.supply_request_id=? FOR UPDATE",id);if(r.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy yêu cầu");return r.get(0);}
+ private void audit(Actor a,String action,long id,String note){jdbc.update("INSERT INTO audit_logs(actor_user_id,action_code,entity_type,entity_id,new_data) VALUES (?,?,'SUPPLY_REQUEST',?,JSON_OBJECT('note',?))",a.userId(),action,id,note);}
+ @PutMapping("/{id}") @Transactional public ApiResponse<?> update(@AuthenticationPrincipal Actor a,@PathVariable long id,@jakarta.validation.Valid @RequestBody Update x){a.requireRole("OPERATIONS_COORDINATOR");var r=lock(id);if(!Set.of("SENT","REJECTED").contains(r.get("status"))||!Set.of("PENDING","REJECTED").contains(r.get("item_status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Nhà cung cấp đã tiếp nhận, không thể sửa");BigDecimal old=(BigDecimal)r.get("requested_quantity"),delta=x.quantity().subtract(old);var offer=jdbc.queryForMap("SELECT * FROM supplier_sku_offers WHERE supplier_offer_id=? FOR UPDATE",r.get("supplier_offer_id"));BigDecimal remaining=((BigDecimal)offer.get("available_quantity")).subtract((BigDecimal)offer.get("reserved_quantity"));if(delta.signum()>0&&delta.compareTo(remaining)>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Nguồn cung còn lại không đủ");jdbc.update("UPDATE supplier_sku_offers SET reserved_quantity=reserved_quantity+?,status=IF(reserved_quantity=0,'AVAILABLE',IF(reserved_quantity=available_quantity,'FULLY_RESERVED','PARTIALLY_RESERVED')) WHERE supplier_offer_id=?",delta,r.get("supplier_offer_id"));jdbc.update("UPDATE supply_requests SET required_arrival_time=?,status='SENT',responded_at=NULL WHERE supply_request_id=?",x.arrivalTime(),id);jdbc.update("UPDATE supply_request_items SET requested_quantity=?,accepted_quantity=0,commission_rate=?,status='PENDING',rejection_reason=NULL WHERE supply_request_item_id=?",x.quantity(),x.commissionRate(),r.get("supply_request_item_id"));jdbc.update("UPDATE supply_request_item_orders SET planned_quantity=? WHERE supply_request_item_id=?",x.quantity(),r.get("supply_request_item_id"));audit(a,"UPDATE_SUPPLY_REQUEST",id,"updated");return ApiResponse.success(id,"Đã cập nhật yêu cầu cung ứng");}
+ @PostMapping("/{id}/cancel") @Transactional public ApiResponse<?> cancel(@AuthenticationPrincipal Actor a,@PathVariable long id,@jakarta.validation.Valid @RequestBody Reason x){a.requireRole("OPERATIONS_COORDINATOR");var r=lock(id);if(!Set.of("SENT","ACCEPTED","PARTIALLY_ACCEPTED","REJECTED").contains(r.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Yêu cầu không thể hủy");if(jdbc.queryForObject("SELECT COUNT(*) FROM batches WHERE supply_request_item_id=?",Integer.class,r.get("supply_request_item_id"))>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Yêu cầu đã có lô hàng");BigDecimal release="PENDING".equals(r.get("item_status"))?(BigDecimal)r.get("requested_quantity"):(BigDecimal)jdbc.queryForObject("SELECT accepted_quantity FROM supply_request_items WHERE supply_request_item_id=?",BigDecimal.class,r.get("supply_request_item_id"));jdbc.update("UPDATE supplier_sku_offers SET reserved_quantity=GREATEST(0,reserved_quantity-?),status=IF(GREATEST(0,reserved_quantity-?)=0,'AVAILABLE',IF(GREATEST(0,reserved_quantity-?)=available_quantity,'FULLY_RESERVED','PARTIALLY_RESERVED')) WHERE supplier_offer_id=?",release,release,release,r.get("supplier_offer_id"));jdbc.update("UPDATE supply_requests SET status='CANCELLED',cancelled_at=UTC_TIMESTAMP(3),cancellation_reason=? WHERE supply_request_id=?",x.reason(),id);jdbc.update("UPDATE supply_request_items SET status='CANCELLED' WHERE supply_request_id=?",id);audit(a,"CANCEL_SUPPLY_REQUEST",id,x.reason());return ApiResponse.success(id,"Đã hủy yêu cầu và giải phóng lượng giữ");}
+}
