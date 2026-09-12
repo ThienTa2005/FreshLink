@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionForm, DataTable, QrButton, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import TripPage from './TripPage'
 
-export default function OperationsPage() {
+export default function OperationsPage({ initialTab }: { initialTab?: string }) {
   const { user } = useAuth(); const roles = user!.memberships.flatMap(m => m.roles)
   const can = (role: string) => roles.includes('SYSTEM_ADMIN') || roles.includes(role)
   const [date, setDate] = useState(tomorrow()); const [error, setError] = useState(''); const client = useQueryClient()
@@ -27,7 +27,7 @@ export default function OperationsPage() {
   const docks = options(lookup.data?.addresses.filter(a => a.address_type === 'CROSS_DOCK'), 'address_id', 'address_name')
   return <><Space wrap className="action-card"><strong>Ngày vận hành</strong><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Space>
     {error && <Alert type="error" message={error} />}{lookup.error && <Alert type="error" message={lookup.error.message} />}
-    <Tabs items={[
+    <Tabs defaultActiveKey={initialTab} items={[
       ...(can('OPERATIONS_COORDINATOR') ? [
         { key: 'overview', label: 'Tổng quan', children: <><div className="stat-grid">{[['shortages', 'Đơn thiếu nguồn'], ['waitingBatches', 'Lô chờ kiểm'], ['trips', 'Chuyến chưa xong'], ['claims', 'Khiếu nại chờ xử lý']].map(([key, title]) => <Card key={key}><Statistic title={title} value={dashboard.data?.[key] ?? 0} loading={dashboard.isPending} /></Card>)}</div><DataTable path={`/operations/orders?date=${date}`} rowKey="order_id" columns={[[ 'order_code', 'Đơn' ], ['order_status', 'Trạng thái'], ['total_amount', 'Tổng tiền']]} /></> },
         { key: 'source', label: 'Phân nguồn', children: <><DataTable path={`/operations/demand?date=${date}`} rowKey="order_item_id" columns={[[ 'order_item_id', 'Dòng đơn' ], ['order_code', 'Đơn'], ['sku_name', 'Sản phẩm'], ['confirmed_quantity', 'Cần'], ['sourced_quantity', 'Đã phân nguồn']]} /><DataTable path={`/operations/offers?date=${date}`} rowKey="supplier_offer_id" columns={[[ 'organization_name', 'Nhà cung cấp' ], ['sku_name', 'Sản phẩm'], ['available_quantity', 'Năng lực'], ['reserved_quantity', 'Đã giữ'], ['supplier_unit_price', 'Giá']]} />

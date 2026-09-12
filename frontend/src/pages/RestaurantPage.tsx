@@ -5,9 +5,9 @@ import { api } from '../api/http'
 import { ActionForm, DataTable, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import { OrderDetail } from './TripPage'
 
-export default function RestaurantPage({ organizationId }: { organizationId: number }) {
+export default function RestaurantPage({ organizationId, initialTab = 'order' }: { organizationId: number; initialTab?: string }) {
   const [date, setDate] = useState(tomorrow()); const [cart, setCart] = useState<Record<string, number>>({})
-  const [tab, setTab] = useState('order'); const [weeklyPlanId, setWeeklyPlanId] = useState<number>()
+  const [tab, setTab] = useState(initialTab); const [weeklyPlanId, setWeeklyPlanId] = useState<number>()
   const [address, setAddress] = useState<number>(); const [startTime, setStart] = useState('07:00'); const [endTime, setEnd] = useState('09:00')
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [selected, setSelected] = useState<number>()
   const [request, setRequest] = useState({ hash: '', key: crypto.randomUUID() }); const client = useQueryClient()

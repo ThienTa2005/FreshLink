@@ -17,7 +17,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/portal" element={<PortalPage />} />
+      <Route path="/portal/*" element={<PortalPage />} />
       <Route path="/trace/:code" element={<TracePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

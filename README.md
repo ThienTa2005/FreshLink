@@ -70,12 +70,8 @@ Import `postman/FreshLink-MVP.postman_collection.json` và environment Local. Đ
 
 ## Deploy không có tên miền riêng
 
-- Vercel cấp URL `https://<project>.vercel.app`.
-- Render cấp URL `https://<service>.onrender.com`.
-- Trên Vercel, đặt `VITE_API_URL=https://<service>.onrender.com/api`.
-- Trên Render, đặt `CORS_ALLOWED_ORIGINS=https://<project>.vercel.app`.
-
-Các luồng MVP đã có frontend/API: tài khoản, đối tác, đặt hàng và kế hoạch tuần, cung ứng, Gate, phân lô, QR, giao/nhận, khiếu nại, thùng và đối soát thủ công.
+- Vercel cấp URL `https://fresh-link-eight.vercel.app`.
+- Render cấp URL `https://freshlink-1-4c1h.onrender.com`.
 
 - [Phân công nhóm 2 người](docs/TEAM_TASKS.md)
 - [Khởi tạo tài khoản, dữ liệu demo và kiểm thử](docs/DEMO.md)
@@ -83,4 +79,3 @@ Các luồng MVP đã có frontend/API: tài khoản, đối tác, đặt hàng 
 - [Triển khai và lưu tệp bền vững](docs/DEPLOYMENT.md)
 - [Khởi tạo MySQL local/cloud bằng một file SQL](database/README.md)
 
-Ant Design được dùng cho các cổng nghiệp vụ. Token đăng nhập được giữ trong `sessionStorage`: tải lại tab vẫn giữ phiên, đóng tab sẽ xóa phiên phía trình duyệt; token phía server hết hạn sau 8 giờ. Đọc các giới hạn MVP trong tài liệu demo trước khi nghiệm thu.

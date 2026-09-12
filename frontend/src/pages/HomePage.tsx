@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PublicFooter, PublicHeader } from '../components/Brand'
 
 const roles = [
   ['Nhà hàng', 'Đặt rau, nấm theo ngày; xem trạng thái và truy xuất từng lô.'],
@@ -11,15 +12,7 @@ const flow = ['Nhà hàng đặt đơn', 'Phân bổ nguồn', 'Kiểm tại cro
 
 export default function HomePage() {
   return (
-    <main>
-      <header className="topbar">
-        <Link className="brand" to="/">FreshLink</Link>
-        <nav>
-          <a href="#solution">Giải pháp</a>
-          <a href="#process">Quy trình</a>
-          <Link className="button button-small" to="/login">Đăng nhập</Link>
-        </nav>
-      </header>
+    <main><PublicHeader />
 
       <section className="hero">
         <div>
@@ -28,7 +21,7 @@ export default function HomePage() {
           <p>FreshLink kết nối nhà hàng với nguồn rau và nấm, ghi nhận kiểm lô tại điểm tập kết và điều phối giao theo đơn trong ngày.</p>
           <div className="actions">
             <Link className="button" to="/register">Đăng ký hợp tác</Link>
-            <a className="button secondary" href="#process">Xem quy trình</a>
+            <a className="button secondary" href="#workflow">Xem quy trình</a>
           </div>
         </div>
         <aside className="hero-card">
@@ -40,7 +33,7 @@ export default function HomePage() {
         </aside>
       </section>
 
-      <section className="section" id="solution">
+      <section className="section" id="solutions">
         <span className="eyebrow">Một hệ thống, bốn bên phối hợp</span>
         <h2>Thông tin đi cùng hàng hóa trong toàn bộ quy trình</h2>
         <div className="role-grid">
@@ -52,7 +45,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section process" id="process">
+      <section className="section process" id="workflow">
         <span className="eyebrow">Cross-dock có kiểm soát</span>
         <h2>Không lưu thực phẩm qua đêm</h2>
         <div className="steps">
@@ -60,7 +53,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer><strong>FreshLink</strong><span>Thí điểm tại Cầu Giấy và Đống Đa, Hà Nội</span></footer>
+      <section className="section trace-promo" id="traceability"><div><span className="eyebrow">Minh bạch từ nguồn đến bếp</span><h2>Quét một mã, xem trọn hành trình</h2><p>Mỗi lô hàng và thùng luân chuyển đều có dấu vết kiểm nhận, phân bổ và giao hàng rõ ràng.</p></div><Link className="button secondary" to="/trace/demo">Thử trang truy xuất</Link></section>
+      <PublicFooter />
     </main>
   )
 }
