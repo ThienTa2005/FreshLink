@@ -38,7 +38,7 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
           ]} /></> },
         { key: 'trips', label: 'Điều phối giao', children: <><ActionForm title="Chuyến giao" path="/trips" fields={[
           { name: 'date', label: 'Ngày giao', type: 'date', initial: date }, { name: 'originId', label: 'Điểm tập kết', type: 'select', options: docks }, { name: 'driverId', label: 'Tài xế', type: 'select', options: options(lookup.data?.drivers, 'user_id', 'full_name') }, { name: 'orderIds', label: 'Đơn theo thứ tự điểm giao', type: 'multiple', options: options(orders.data?.filter(o => ['SOURCING', 'CONFIRMED'].includes(String(o.order_status))), 'order_id', 'order_code') },
-        ]} /><TripPage /><DataTable path="/operations/stops" rowKey="trip_stop_id" columns={[[ 'label', 'Kiện theo điểm giao' ]]} actions={r => <QrButton type="DELIVERY_PACKAGE" id={r.trip_stop_id} />} /></> },
+        ]} /><TripPage canOptimize /><DataTable path="/operations/stops" rowKey="trip_stop_id" columns={[[ 'label', 'Kiện theo điểm giao' ]]} actions={r => <QrButton type="DELIVERY_PACKAGE" id={r.trip_stop_id} />} /></> },
         { key: 'prices', label: 'Giá và cấu hình', children: <><ActionForm title="Giá bán" path="/operations/prices" fields={[
           { name: 'skuId', label: 'SKU', type: 'select', options: options(catalog.data, 'sku_id', 'sku_name') }, { name: 'price', label: 'Đơn giá bán (đ)', type: 'number' }, { name: 'date', label: 'Áp dụng từ ngày giao', type: 'date', initial: date },
         ]} /><ActionForm title="Sản phẩm và SKU" path="/operations/catalog" fields={[

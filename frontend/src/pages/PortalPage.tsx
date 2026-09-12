@@ -3,11 +3,12 @@ import { Button, Drawer, Layout, Result, Select, Space, Typography } from 'antd'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Logo } from '../components/Brand'
+import GlobalSearch from '../components/GlobalSearch'
 import RestaurantPage from './RestaurantPage'
 import SupplierPage from './SupplierPage'
 import OperationsPage from './OperationsPage'
 import TripPage from './TripPage'
-import { AnalyticsPage, InvoicesPage, MembersPage, NotificationsPage } from './ManagementPages'
+import { AnalyticsPage, InvoicesPage, MembersPage, NotificationsPage, SystemCheckPage } from './ManagementPages'
 
 type NavItem = { key:string; label:string; icon:string; href:string; roles:string[] }
 const nav:NavItem[]=[
@@ -37,6 +38,7 @@ export default function PortalPage(){
  const requested=nav.find(item=>item.key===active)
  if(requested&&!allowed.some(item=>item.key===requested.key))content=<Result status="403" title="Bạn không có quyền truy cập" subTitle="Màn hình này không thuộc vai trò hiện tại của bạn." extra={<Link className="button button-small" to="/portal/dashboard">Về tổng quan</Link>}/>
  else if(root==='notifications')content=<NotificationsPage />
+ else if(root==='admin')content=<SystemCheckPage />
  else if(root==='members'&&organizationId)content=<MembersPage organizationId={organizationId} />
  else if(root==='analytics')content=<AnalyticsPage />
  else if(root==='invoices')content=<InvoicesPage restaurantId={has('ACCOUNTANT')?undefined:organizationId} accountant={has('ACCOUNTANT')} />
@@ -49,6 +51,7 @@ export default function PortalPage(){
  else if(organizationId&&has('SUPPLIER_MANAGER','SUPPLIER_STAFF'))content=<SupplierPage organizationId={organizationId} />
  else if(organizationId)content=<RestaurantPage organizationId={organizationId} />
  else content=<Result status="info" title="Tài khoản chưa có đơn vị phù hợp" subTitle="Liên hệ quản trị viên để được cấp quyền truy cập." />
+ content=<><div className="mobile-global-search"><GlobalSearch/></div>{content}</>
  const sidebar=<aside className="portal-sidebar"><div className="portal-logo"><Logo /></div>{organizations.length>0&&<div className="org-switch"><label>Đơn vị đối tác</label><Select value={organizationId} options={organizations.map(m=>({value:m.organizationId,label:m.organizationName}))} onChange={setOrg} /></div>}<nav aria-label="Điều hướng nghiệp vụ">{allowed.map(item=><Link key={item.key} className={active===item.key?'active':''} to={item.href} onClick={()=>setMobile(false)}><i>{item.icon}</i><span>{item.label}</span></Link>)}</nav><div className="cold-chain"><b><span /> Hệ thống đang hoạt động</b><small>Dữ liệu được đồng bộ theo thời gian thực.</small></div></aside>
  return <Layout className="portal-layout">{sidebar}<Drawer className="mobile-menu" placement="left" open={mobile} onClose={()=>setMobile(false)} width={292} styles={{body:{padding:0}}}>{sidebar}</Drawer><div className="portal-main"><header className="portal-header"><Button className="menu-trigger" onClick={()=>setMobile(true)} aria-label="Mở menu">☰</Button><div className="global-search">⌕ <input aria-label="Tìm kiếm" placeholder="Mã đơn hàng, sản phẩm, nhà cung cấp..." /></div><div className="pilot-status"><span /> Pilot: Cầu Giấy & Đống Đa</div><Space><Link className="notification-button" to="/portal/notifications" aria-label="Thông báo">♢<b /></Link><div className="user-summary"><strong>{user.fullName}</strong><small>{roles[0]?.replaceAll('_',' ')}</small></div><Button onClick={()=>void logout()}>Đăng xuất</Button></Space></header><main className="portal-content"><div className="breadcrumbs"><Link to="/portal/dashboard">FreshLink</Link><span>/</span><span>{titles[segment]??titles[root]??'Không gian làm việc'}</span></div><div className="page-heading"><div><Typography.Title level={2}>{titles[segment]??titles[root]??'Không gian làm việc'}</Typography.Title><p>Dữ liệu nghiệp vụ được phân quyền theo tài khoản và đơn vị đang chọn.</p></div></div><section key={segment}>{content}</section></main></div></Layout>
 }

@@ -84,6 +84,14 @@ export async function uploadEvidence(file: File): Promise<{ id: number; name: st
   return readResponse<{ id: number; name: string }>(response)
 }
 
+export async function downloadApiFile(path: string, fallbackName: string) {
+  const response = await fetchWithTimeout(`${API_URL}${path}`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } })
+  if (!response.ok) { await readResponse(response); return }
+  const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement('a')
+  anchor.href = url; anchor.download = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ?? fallbackName
+  document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export async function api<T>(path: string, method = 'GET', body?: unknown, key?: string): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     method,

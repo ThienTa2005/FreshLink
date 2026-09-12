@@ -25,3 +25,9 @@ export function InvoicesPage({restaurantId,accountant}:{restaurantId?:number;acc
  const suffix=restaurantId?`?restaurantId=${restaurantId}`:''
  return <>{accountant&&<ActionForm title="Phát hành hóa đơn" path="/billing/invoices" fields={[{name:'orderId',label:'ID đơn hàng',type:'number',min:1},{name:'dueDate',label:'Hạn thanh toán',type:'date'},{name:'taxAmount',label:'Thuế',type:'number',min:0,initial:0},{name:'note',label:'Ghi chú',type:'textarea',required:false}]}/>}<DataTable path={`/billing/invoices${suffix}`} rowKey="invoice_id" columns={[[ 'invoice_code','Hóa đơn'],['order_id','Đơn hàng'],['issued_at','Ngày phát hành'],['due_date','Hạn thanh toán'],['total_amount','Tổng tiền'],['paid_amount','Đã trả'],['balance_amount','Còn lại'],['status','Trạng thái']]}/></>
 }
+
+export function SystemCheckPage(){
+ const query=useQuery({queryKey:['system-check'],queryFn:()=>api<Record<string,Row>>('/admin/system-check'),refetchInterval:60_000})
+ const services=[['Cơ sở dữ liệu','database'],['Kho tệp','media'],['Email','email'],['Bản đồ','maps']]
+ return <>{query.error&&<Alert type="error" message={query.error.message}/>}<div className="stat-grid">{services.map(([label,key])=>{const status=String(query.data?.[key]?.status??'CHECKING');return <Card key={key}><Statistic title={label} value={status}/><Tag color={status==='UP'||status==='CONFIGURED'?'green':status.includes('ONLY')||status==='NOT_CONFIGURED'?'gold':'blue'}>{status}</Tag></Card>})}</div><Alert type="info" showIcon message="Các tích hợp không cấu hình sẽ dùng chế độ fallback an toàn; backend vẫn khởi động và phục vụ nghiệp vụ cốt lõi."/></>
+}

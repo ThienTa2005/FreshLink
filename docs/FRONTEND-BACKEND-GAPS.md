@@ -1,5 +1,21 @@
 # Các điểm giao diện chưa có backend hoàn chỉnh
 
+## Đã hoàn thành trong đợt V8
+
+- Tìm kiếm hợp nhất có lọc quyền: `GET /api/search`.
+- Saved views: đọc, tạo và xóa bộ lọc cá nhân.
+- Danh mục lý do giao thất bại và lưu `reasonCode` chuẩn hóa.
+- Manifest chuyến dạng CSV có kiểm tra quyền.
+- Tối ưu thứ tự điểm bằng heuristic nearest-neighbor; hoạt động không cần API key bản đồ.
+- Telemetry GPS/nhiệt độ và vị trí chuyến mới nhất.
+- Scheduler cảnh báo trễ, chống gửi trùng bằng `late_alerted_at`.
+- Workflow yêu cầu, nộp và duyệt hồ sơ bổ sung cho lô.
+- System check an toàn cho database, media, email và maps.
+- Chuỗi dữ liệu KPI theo ngày.
+- Email outbox đã có schema để tích hợp provider mà không làm hỏng transaction nghiệp vụ.
+
+Các dòng bên dưới chỉ còn là phần cần nhà cung cấp bên ngoài hoặc phần nâng cấp tiếp theo.
+
 Tài liệu này phân biệt rõ phần giao diện lấy từ Stitch với chức năng backend thực tế. Frontend không gọi API giả cho các mục dưới đây.
 
 | Giao diện/ý tưởng trong bản Stitch | Tình trạng backend | Việc backend cần bổ sung sau |
