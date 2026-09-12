@@ -48,7 +48,7 @@ app:
     email: ${BOOTSTRAP_EMAIL:}
     password: ${BOOTSTRAP_PASSWORD:}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:*,https://*.vercel.app,https://vercel.app,https://fresh-link-eight.vercel.app,*}
 
 management:
   endpoints:

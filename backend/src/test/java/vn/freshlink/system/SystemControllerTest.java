@@ -27,4 +27,25 @@ class SystemControllerTest {
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.status").value("UP"));
     }
+
+    @Test
+    void corsPreflightWorksForVercelOrigin() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/public/health")
+                .header("Origin", "https://fresh-link-eight.vercel.app")
+                .header("Access-Control-Request-Method", "GET")
+                .header("Access-Control-Request-Headers", "X-Request-Id,Authorization,Content-Type"))
+            .andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Access-Control-Allow-Origin", "https://fresh-link-eight.vercel.app"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    void corsGetWorksForVercelOrigin() throws Exception {
+        mockMvc.perform(get("/api/public/health")
+                .header("Origin", "https://fresh-link-eight.vercel.app")
+                .header("X-Request-Id", "test-trace-123"))
+            .andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Access-Control-Allow-Origin", "https://fresh-link-eight.vercel.app"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Access-Control-Allow-Credentials", "true"));
+    }
 }

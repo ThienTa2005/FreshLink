@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [discardSession, restoreSession])
 
   async function login(email: string, password: string) {
-    await warmBackend()
+    await warmBackend().catch(() => {})
     const result = await api<{ token: string; expiresAt: string; user: Actor }>('/public/auth/login', 'POST', { email, password })
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: result.token, expiresAt: result.expiresAt }))
     const id = result.user.memberships[0]?.organizationId ?? null

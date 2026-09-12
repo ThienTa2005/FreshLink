@@ -16,9 +16,9 @@ services:
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: "https://fresh-link-eight.vercel.app,https://*.vercel.app,http://localhost:5173,*"
       - key: FRONTEND_URL
-        sync: false
+        value: "https://fresh-link-eight.vercel.app"
       - key: CLOUDINARY_URL
         sync: false
       - key: CLOUDINARY_FOLDER
