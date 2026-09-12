@@ -25,6 +25,10 @@ public class MediaController {
         this.jdbc=jdbc; this.sql=sql; this.storage=storage; this.accessSeconds=accessSeconds;
     }
 
+    public ApiResponse<?> upload(Actor actor, MultipartFile file) throws Exception {
+        return upload(actor, file, false);
+    }
+
     @PostMapping public ApiResponse<?> upload(@AuthenticationPrincipal Actor actor,
                                                @RequestParam MultipartFile file,
                                                @RequestParam(required=false, defaultValue="false") boolean isPublic) throws Exception {
