@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Card, Descriptions, Empty, Input, List, Space, Statistic, Tabs, Timeline } from 'antd'
+import { Alert, Button, Card, Descriptions, Empty, Input, List, Space, Statistic, Table, Tabs, Timeline } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -27,7 +27,7 @@ export function DetailPage({type,id}:{type:string;id:number}){
  return <RecordDetail type={type} id={id}/>
 }
 function ClaimDossierDetail({id}:{id:number}){
- const {membership}=useAuth();const q=useQuery({queryKey:['claim-dossier',id],queryFn:()=>api<Row>(`/claims/${id}/dossier`)});const d=q.data
+ const q=useQuery({queryKey:['claim-dossier',id],queryFn:()=>api<Row>(`/claims/${id}/dossier`)});const d=q.data
  const complaint=(d?.complaint as Row)||{};const items=(d?.items as Row[])||[];const delivery=(d?.delivery as Row)||null;const notes=(d?.notes as Row[])||[]
  const isStaff=Boolean(d?.isInternalStaff)
  const [noteContent,setNoteContent]=useState('');const [isInternal,setIsInternal]=useState(true);const [delegateDept,setDelegateDept]=useState('QC')
@@ -68,18 +68,25 @@ function ClaimDossierDetail({id}:{id:number}){
 }
 function SettlementStatementDetail({id}:{id:number}){
  const q=useQuery({queryKey:['settlement-statement',id],queryFn:()=>api<Row>(`/billing/settlements/${id}/statement`)});const d=q.data
- const s=(d?.settlement as Row)||{};const items=(d?.items as Row[])||[]
+ const s=(d?.settlement as Row)||d||{};const items=(d?.items as Row[])||[]
  return <Card title={`Bảng kê đối soát chi tiết #${id}`} loading={q.isPending} extra={<Button onClick={()=>window.print()}>In bảng kê</Button>}>
   <Descriptions bordered column={{xs:1,sm:2}}>
    <Descriptions.Item label="Mã đối soát">{String(s.settlement_code??'')}</Descriptions.Item>
    <Descriptions.Item label="Nhà cung cấp">{String(s.supplier_name??'')}</Descriptions.Item>
-   <Descriptions.Item label="Kỳ đối soát">{String(s.period_start_date??'')} đến {String(s.period_end_date??'')}</Descriptions.Item>
+   <Descriptions.Item label="Kỳ đối soát">{String(s.period_start_date??s.period_start??'')} đến {String(s.period_end_date??s.period_end??'')}</Descriptions.Item>
    <Descriptions.Item label="Tổng tiền thanh toán"><b style={{color:'#176b45'}}>{display(d?.totalAmount??s.payable_amount,'price')} đ</b></Descriptions.Item>
    <Descriptions.Item label="Trạng thái">{display(s.status)}</Descriptions.Item>
    <Descriptions.Item label="Chứng từ">{String(s.external_reference??'Chưa có')}</Descriptions.Item>
   </Descriptions>
   <Card title="Chi tiết các lô hàng trong kỳ" size="small" style={{marginTop:16}}>
-   <DataTable path={`/billing/settlements/${id}/statement`} rowKey="batch_id" columns={[['batch_code','Mã lô'],['sku_name','Mặt hàng'],['settled_quantity','Số lượng'],['supplier_unit_price','Đơn giá'],['subtotal','Thành tiền']]}/>
+   <Table<Row> rowKey={r=>String(r.settlement_item_id??r.batch_id??Math.random())} dataSource={items} pagination={false} scroll={{x:'max-content'}}
+     columns={[
+       {key:'batch_code',title:'Mã lô',dataIndex:'batch_code',render:(v:unknown)=>display(v,'batch_code')},
+       {key:'sku_name',title:'Mặt hàng',dataIndex:'sku_name',render:(v:unknown)=>display(v,'sku_name')},
+       {key:'delivered_quantity',title:'Số lượng',dataIndex:'delivered_quantity',render:(v:unknown)=>display(v,'quantity')},
+       {key:'supplier_unit_price',title:'Đơn giá',dataIndex:'supplier_unit_price',render:(v:unknown)=>display(v,'price')},
+       {key:'net_amount',title:'Thành tiền',dataIndex:'net_amount',render:(v:unknown)=>display(v,'price')}
+     ]}/>
   </Card>
  </Card>
 }

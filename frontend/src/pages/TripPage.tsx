@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
-import { Alert, Button, Card, Descriptions, Space, Typography, Tag, Modal, Input, Radio, Badge, Divider, List, Form } from 'antd'
+import { useEffect, useState } from 'react'
+import { Alert, Button, Card, Descriptions, Space, Typography, Tag, Modal, Input, Divider, List, Form } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, downloadApiFile, ApiError } from '../api/http'
 import { useAuth } from '../auth/AuthContext'
 import { can, display } from '../components/permissions'
-import { Link } from 'react-router-dom'
 import { ActionForm, DataTable, options, useRows, type Row } from '../components/Workspace'
 import { enqueueOfflineAction } from '../api/offlineQueue'
 
@@ -45,7 +44,6 @@ export function OrderDetail({ orderId }: { orderId: number }) {
   const manager = can(membership, 'RESTAURANT_MANAGER') && membership?.organizationType === 'RESTAURANT'
   const receiver = can(membership, 'RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER') && membership?.organizationType === 'RESTAURANT'
   const coordinator = can(membership, 'OPERATIONS_COORDINATOR', 'SYSTEM_ADMIN')
-  const client = useQueryClient()
 
   const query = useQuery({ queryKey: ['order', orderId], queryFn: () => api<Row>(`/orders/${orderId}`) })
   const remediesQuery = useQuery({ queryKey: ['order-remedies', orderId], queryFn: () => api<Row[]>(`/orders/${orderId}/remedies`) })
@@ -160,7 +158,6 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
   const isDriver = can(membership, 'DRIVER')
 
   const query = useQuery({ queryKey: ['trip', selected], queryFn: () => api<Row>(`/trips/${selected}`), enabled: !!selected })
-  const tripsList = useQuery({ queryKey: ['driver-trips'], queryFn: () => api<Row[]>('/trips') })
 
   // GPS background telemetry watchdog when trip is IN_PROGRESS
   useEffect(() => {
