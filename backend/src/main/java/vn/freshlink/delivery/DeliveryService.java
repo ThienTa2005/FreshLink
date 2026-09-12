@@ -89,9 +89,36 @@ public class DeliveryService {
     }
 
     public Map<String,Object> trip(Actor actor,long id) {
-        var trip=jdbc.queryForMap("SELECT * FROM delivery_trips WHERE trip_id=?",id);
+        var trip=jdbc.queryForMap("""
+            SELECT t.*,
+                   orig.address_name AS origin_name,
+                   orig.address_line AS origin_address_line,
+                   orig.district AS origin_district,
+                   orig.city AS origin_city,
+                   orig.latitude AS origin_latitude,
+                   orig.longitude AS origin_longitude,
+                   u.full_name AS driver_name,
+                   u.phone AS driver_phone
+            FROM delivery_trips t
+            LEFT JOIN addresses orig ON orig.address_id=t.origin_address_id
+            LEFT JOIN users u ON u.user_id=t.driver_user_id
+            WHERE t.trip_id=?
+        """,id);
         requireDriver(actor,trip);
-        var stops=jdbc.queryForList("SELECT s.*,a.address_line,a.district,a.city,a.contact_name,a.contact_phone FROM trip_stops s JOIN addresses a ON a.address_id=s.delivery_address_id WHERE s.trip_id=? ORDER BY s.stop_sequence",id);
+        var stops=jdbc.queryForList("""
+            SELECT s.*,
+                   a.address_name, a.address_line, a.district, a.city,
+                   a.contact_name, a.contact_phone,
+                   a.latitude, a.longitude,
+                   o.order_code,
+                   org.organization_name AS restaurant_name
+            FROM trip_stops s
+            JOIN addresses a ON a.address_id=s.delivery_address_id
+            JOIN customer_orders o ON o.order_id=s.order_id
+            JOIN organizations org ON org.organization_id=o.restaurant_id
+            WHERE s.trip_id=?
+            ORDER BY s.stop_sequence
+        """,id);
         for(var stop:stops) {
             stop.put("items",jdbc.queryForList("SELECT d.*,s.sku_name FROM delivery_items d JOIN order_items i ON i.order_item_id=d.order_item_id JOIN product_skus s ON s.sku_id=i.sku_id WHERE d.trip_stop_id=?",stop.get("trip_stop_id")));
             stop.put("assets",jdbc.queryForList("SELECT a.asset_id,a.asset_code,a.status FROM returnable_assets a JOIN addresses addr ON addr.organization_id=a.current_organization_id WHERE addr.address_id=?",stop.get("delivery_address_id")));

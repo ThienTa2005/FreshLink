@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Input, Button } from 'antd'
 import { PublicFooter, PublicHeader } from '../components/Brand'
+import { FreshLinkMap } from '../components/FreshLinkMap'
 
 const roles = [
   {
@@ -160,6 +161,36 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Interactive Cold-Chain Network Map Section */}
+      <section className="section" style={{ padding: '40px 0' }}>
+        <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 28px' }}>
+          <span className="eyebrow" style={{ display: 'inline-flex' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>share_location</span>
+            Mạng lưới Kho vận & Vùng nguyên liệu
+          </span>
+          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#005131', marginTop: 8 }}>
+            Hệ Thống Hub Chuỗi Lạnh Toàn Quốc
+          </h2>
+          <p style={{ color: '#55625a' }}>
+            Kết nối các vùng trồng VietGAP tại Mộc Châu, Đà Lạt với hệ sinh thái kho Cross-dock Hà Nội và TP. Hồ Chí Minh, đảm bảo nhiệt độ chuẩn +2°C ~ +6°C suốt hành trình.
+          </p>
+        </div>
+        <FreshLinkMap
+          title="Bản đồ Chuỗi cung ứng FreshLink (Hà Nội · Sơn La · Đà Lạt · TP.HCM)"
+          subtitle="Các kho trung tâm, Hub tập kết và đội xe lạnh vệ tinh vận hành liên tục"
+          hubs={[
+            {hubId:1,code:'HUB-HN-01',name:'Hub Trung Tâm Hà Nội #01 (Bắc Thăng Long)',type:'CENTRAL_CROSS_DOCK',address:'KCN Bắc Thăng Long, Đông Anh, Hà Nội',district:'Đông Anh',city:'Hà Nội',latitude:21.1458,longitude:105.8452,temperatureC:3.4,humidityPercent:88,capacityCrates:3500,activeTrucks:18,phone:'0123456789'},
+            {hubId:2,code:'HUB-HN-02',name:'Hub Trung Chuyển Hoàng Mai #02',type:'URBAN_CROSS_DOCK',address:'Km 12 Ngọc Hồi, Hoàng Mai, Hà Nội',district:'Hoàng Mai',city:'Hà Nội',latitude:20.9572,longitude:105.8488,temperatureC:3.8,humidityPercent:86,capacityCrates:2200,activeTrucks:12,phone:'0123456789'},
+            {hubId:3,code:'HUB-MC-01',name:'Hub Vùng Nông Sản Mộc Châu (Tây Bắc)',type:'REGIONAL_COLLECTION_HUB',address:'TT. Nông Trường Mộc Châu, Sơn La',district:'Mộc Châu',city:'Sơn La',latitude:20.8436,longitude:104.6642,temperatureC:4.1,humidityPercent:91,capacityCrates:2800,activeTrucks:8,phone:'0123456789'},
+            {hubId:4,code:'HUB-DL-01',name:'Hub Nông Sản Công Nghệ Cao Đà Lạt',type:'REGIONAL_COLLECTION_HUB',address:'Đường Vạn Thành, Phường 5, TP. Đà Lạt',district:'Đà Lạt',city:'Lâm Đồng',latitude:11.9404,longitude:108.4182,temperatureC:3.8,humidityPercent:89,capacityCrates:4000,activeTrucks:15,phone:'0123456789'},
+            {hubId:5,code:'HUB-HCM-01',name:'Hub Trung Tâm Miền Nam (Củ Chi)',type:'CENTRAL_CROSS_DOCK',address:'KCN Tân Phú Trung, Củ Chi, TP.HCM',district:'Củ Chi',city:'TP. Hồ Chí Minh',latitude:10.9632,longitude:106.5298,temperatureC:3.6,humidityPercent:87,capacityCrates:4200,activeTrucks:22,phone:'0123456789'}
+          ]}
+          height="450px"
+          zoom={6}
+          center={[16.0, 107.5]}
+        />
       </section>
 
       {/* Traceability Promo Banner */}

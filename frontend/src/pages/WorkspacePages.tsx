@@ -11,6 +11,7 @@ import { OrderDetail } from './TripPage'
 import TripPage from './TripPage'
 import OperationsPage from './OperationsPage'
 import { SystemCheckPage } from './ManagementPages'
+import { FreshLinkMap, type ColdChainHubPoint, type VehicleMapPoint } from '../components/FreshLinkMap'
 
 export function DashboardPage(){
  const q=useRows('/workspace/tasks');const {user,membership}=useAuth()
@@ -24,6 +25,27 @@ export function DashboardPage(){
 
  const totalTasks=q.data?.reduce((acc,x)=>acc+(Number(x.count)||0),0)??0
  const todayStr=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date())
+
+ const hubsQuery=useQuery({
+  queryKey:['public-hubs'],
+  queryFn:()=>api<ColdChainHubPoint[]>('/public/hubs')
+ })
+
+ const defaultHubs: ColdChainHubPoint[] = [
+  {hubId:1,code:'HUB-HN-01',name:'Hub Trung Tâm Hà Nội #01 (Bắc Thăng Long)',type:'CENTRAL_CROSS_DOCK',address:'KCN Bắc Thăng Long, Huyện Đông Anh, Hà Nội',district:'Đông Anh',city:'Hà Nội',latitude:21.1458,longitude:105.8452,temperatureC:3.4,humidityPercent:88,capacityCrates:3500,activeTrucks:18,phone:'0123456789'},
+  {hubId:2,code:'HUB-HN-02',name:'Hub Trung Chuyển Hoàng Mai #02',type:'URBAN_CROSS_DOCK',address:'Km 12 Đường Ngọc Hồi, Quận Hoàng Mai, Hà Nội',district:'Hoàng Mai',city:'Hà Nội',latitude:20.9572,longitude:105.8488,temperatureC:3.8,humidityPercent:86,capacityCrates:2200,activeTrucks:12,phone:'0123456789'},
+  {hubId:3,code:'HUB-MC-01',name:'Hub Vùng Nông Sản Mộc Châu (Tây Bắc)',type:'REGIONAL_COLLECTION_HUB',address:'Tiểu khu Vườn Đào, TT. Nông Trường Mộc Châu, Sơn La',district:'Mộc Châu',city:'Sơn La',latitude:20.8436,longitude:104.6642,temperatureC:4.1,humidityPercent:91,capacityCrates:2800,activeTrucks:8,phone:'0123456789'},
+  {hubId:4,code:'HUB-DL-01',name:'Hub Nông Sản Công Nghệ Cao Đà Lạt',type:'REGIONAL_COLLECTION_HUB',address:'Đường Vạn Thành, Phường 5, TP. Đà Lạt, Lâm Đồng',district:'Đà Lạt',city:'Lâm Đồng',latitude:11.9404,longitude:108.4182,temperatureC:3.8,humidityPercent:89,capacityCrates:4000,activeTrucks:15,phone:'0123456789'},
+  {hubId:5,code:'HUB-HCM-01',name:'Hub Trung Tâm Miền Nam (Củ Chi - TP.HCM)',type:'CENTRAL_CROSS_DOCK',address:'KCN Tân Phú Trung, Quốc lộ 22, Củ Chi, TP. Hồ Chí Minh',district:'Củ Chi',city:'TP. Hồ Chí Minh',latitude:10.9632,longitude:106.5298,temperatureC:3.6,humidityPercent:87,capacityCrates:4200,activeTrucks:22,phone:'0123456789'}
+ ]
+
+ const hubsData = hubsQuery.data && hubsQuery.data.length > 0 ? hubsQuery.data : defaultHubs
+
+ const activeVehicles: VehicleMapPoint[] = [
+  {vehicle_id:101,vehicle_code:'29H-824.12',driver_name:'Nguyễn Văn Tuấn',driver_phone:'0981234567',latitude:21.0362,longitude:105.7906,temperatureC:3.5,speedKmH:38,status:'Đang giao Cầu Giấy'},
+  {vehicle_id:102,vehicle_code:'29C-912.45',driver_name:'Trần Văn Mạnh',driver_phone:'0977654321',latitude:21.0069,longitude:105.8452,temperatureC:3.9,speedKmH:45,status:'Đang giao Hai Bà Trưng'},
+  {vehicle_id:103,vehicle_code:'49A-345.89',driver_name:'Lê Hoàng Nam',driver_phone:'0912334455',latitude:11.9520,longitude:108.4350,temperatureC:3.2,speedKmH:52,status:'Đang gom hàng Đà Lạt'}
+ ]
 
  const hour=new Date().getHours()
  const greeting=hour<12?'Chào buổi sáng':hour<18?'Chào buổi chiều':'Chào buổi tối'
@@ -163,6 +185,19 @@ export function DashboardPage(){
     </div>
    </div>
 
+   {/* INTERACTIVE COLD CHAIN NETWORK MAP */}
+   <div style={{ marginBottom: 24 }}>
+    <FreshLinkMap
+     title="Bản đồ Mạng Lưới Chuỗi Lạnh & Vị Trí Kho B2B"
+     subtitle="Giám sát trực quan các Hub Cross-dock, vùng thu mua nông sản Tây Bắc / Đà Lạt và đội xe lạnh vệ tinh"
+     hubs={hubsData}
+     vehicles={activeVehicles}
+     height="430px"
+     zoom={6}
+     center={[16.0, 107.5]}
+    />
+   </div>
+
    {/* COLD CHAIN TELEMETRY STRIP */}
    <div className="hub-telemetry-section">
     <div className="hub-telemetry-header">
@@ -173,34 +208,17 @@ export function DashboardPage(){
      <span style={{fontSize:12,color:'var(--text-muted)'}}>Cập nhật qua IoT Gateway</span>
     </div>
     <div className="hub-telemetry-grid">
-     <div className="hub-telemetry-item">
-      <div className="hub-dot"></div>
-      <div style={{flex:1,minWidth:0}}>
-       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Hà Nội #02</div>
-       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+3.4°C · Đông Anh · 18 xe xuất bến</div>
+     {hubsData.slice(0, 4).map(hub => (
+      <div key={hub.code} className="hub-telemetry-item">
+       <div className="hub-dot"></div>
+       <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{hub.name}</div>
+        <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>
+         +{hub.temperatureC?.toFixed(1)}°C · {hub.district}, {hub.city} · {hub.activeTrucks ?? 12} xe xuất bến
+        </div>
+       </div>
       </div>
-     </div>
-     <div className="hub-telemetry-item">
-      <div className="hub-dot"></div>
-      <div style={{flex:1,minWidth:0}}>
-       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Mộc Châu</div>
-       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+4.1°C · Sơn La · Tiếp nhận rau quả</div>
-      </div>
-     </div>
-     <div className="hub-telemetry-item">
-      <div className="hub-dot"></div>
-      <div style={{flex:1,minWidth:0}}>
-       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Đà Lạt</div>
-       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+2.8°C · Lâm Đồng · Chuẩn VietGAP</div>
-      </div>
-     </div>
-     <div className="hub-telemetry-item">
-      <div className="hub-dot" style={{background:'#40690a'}}></div>
-      <div style={{flex:1,minWidth:0}}>
-       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Đội xe lạnh vệ tinh</div>
-       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+3.2°C · 14 xe đang lăn bánh</div>
-      </div>
-     </div>
+     ))}
     </div>
    </div>
 

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
 import type { Row } from '../components/Workspace'
 import { Logo } from '../components/Brand'
+import { FreshLinkMap } from '../components/FreshLinkMap'
 
 export default function TracePage() {
   const { code } = useParams()
@@ -145,6 +146,50 @@ export default function TracePage() {
                   )
                 }
               ]}
+            />
+          </div>
+
+          {/* Geographical Cold-Chain Route Map */}
+          <div style={{ marginTop: 20 }}>
+            <FreshLinkMap
+              title="Bản đồ Hành trình Nông sản & Kiểm soát Chuỗi lạnh"
+              subtitle={`Lộ trình luân chuyển thực tế của mã truy xuất #${code}`}
+              origin={{
+                name: 'Vùng trồng VietGAP (Mộc Châu / Sơn La)',
+                district: 'Mộc Châu',
+                city: 'Sơn La',
+                latitude: 20.8436,
+                longitude: 104.6642
+              }}
+              stops={[
+                {
+                  stop_sequence: 1,
+                  restaurant_name: 'FreshLink Gate KCS (Đông Anh)',
+                  address_line: 'KCN Bắc Thăng Long',
+                  district: 'Đông Anh',
+                  city: 'Hà Nội',
+                  latitude: 21.1458,
+                  longitude: 105.8452,
+                  status: 'DELIVERED',
+                  contact_name: 'Trưởng ca QC',
+                  contact_phone: '0123456789'
+                },
+                {
+                  stop_sequence: 2,
+                  restaurant_name: 'Gian bếp Nhà hàng đối tác B2B',
+                  address_line: 'Điểm giao nhận thực tế',
+                  district: 'Cầu Giấy',
+                  city: 'Hà Nội',
+                  latitude: 21.0362,
+                  longitude: 105.7906,
+                  status: 'DELIVERED',
+                  contact_name: 'Đại diện Bếp trưởng',
+                  contact_phone: '0123456789'
+                }
+              ]}
+              height="340px"
+              zoom={8}
+              center={[21.0, 105.2]}
             />
           </div>
         </Card>

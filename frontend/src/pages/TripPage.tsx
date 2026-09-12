@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { can, display } from '../components/permissions'
 import { ActionForm, DataTable, options, useRows, type Row } from '../components/Workspace'
 import { enqueueOfflineAction } from '../api/offlineQueue'
+import { FreshLinkMap } from '../components/FreshLinkMap'
 
 function ProofForm({ stop, restaurant, onDone }: { stop: Row; restaurant: boolean; onDone?: () => void }) {
   const items = (stop.items as Row[]) || []
@@ -311,6 +312,39 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
           </Space>
         </div>
       )}
+
+      {/* INTERACTIVE DELIVERY ROUTE MAP */}
+      <div style={{ marginBottom: 20 }}>
+        <FreshLinkMap
+          title={`Lộ trình giao xe lạnh: Chuyến #${String(query.data.trip_code ?? selected)}`}
+          subtitle={`${stops.length} điểm giao · Khởi hành từ ${String(query.data.origin_name ?? 'Hub tập kết')}`}
+          origin={{
+            name: String(query.data.origin_name ?? 'Hub xuất phát'),
+            address_line: String(query.data.origin_address_line ?? ''),
+            district: String(query.data.origin_district ?? ''),
+            city: String(query.data.origin_city ?? ''),
+            latitude: query.data.origin_latitude != null ? Number(query.data.origin_latitude) : null,
+            longitude: query.data.origin_longitude != null ? Number(query.data.origin_longitude) : null
+          }}
+          stops={stops.map(s => ({
+            trip_stop_id: s.trip_stop_id as number,
+            stop_sequence: Number(s.stop_sequence),
+            order_code: String(s.order_code ?? ''),
+            restaurant_name: String(s.restaurant_name ?? s.address_name ?? ''),
+            address_name: String(s.address_name ?? ''),
+            address_line: String(s.address_line ?? ''),
+            district: String(s.district ?? ''),
+            city: String(s.city ?? ''),
+            contact_name: String(s.contact_name ?? ''),
+            contact_phone: String(s.contact_phone ?? ''),
+            latitude: s.latitude != null ? Number(s.latitude) : null,
+            longitude: s.longitude != null ? Number(s.longitude) : null,
+            status: String(s.status ?? 'PENDING'),
+            actual_arrival_at: s.actual_arrival_at ? String(s.actual_arrival_at) : null
+          }))}
+          height="360px"
+        />
+      </div>
 
       {/* STOPS LIST */}
       {stops.map(stop => {

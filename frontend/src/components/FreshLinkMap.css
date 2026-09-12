@@ -1,0 +1,424 @@
+/* FreshLink B2B Agro-Logistics Map Styles */
+@import 'leaflet/dist/leaflet.css';
+
+.freshlink-map-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 81, 49, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 33, 17, 0.06);
+  background: #f6f8f5;
+  font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+}
+
+.freshlink-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #e3e8e2;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.freshlink-map-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.freshlink-map-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #005131;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.freshlink-map-subtitle {
+  font-size: 12px;
+  color: #55625a;
+}
+
+.freshlink-map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.map-filter-pill {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid #cce5d6;
+  background: #f0fdf4;
+  color: #005131;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-filter-pill:hover,
+.map-filter-pill.active {
+  background: #005131;
+  color: #ffffff;
+  border-color: #005131;
+  box-shadow: 0 2px 6px rgba(0, 81, 49, 0.25);
+}
+
+.map-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #d0dcd5;
+  background: #ffffff;
+  color: #173128;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.map-action-btn:hover {
+  background: #e8f5ed;
+  color: #005131;
+}
+
+.freshlink-map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  z-index: 1;
+}
+
+/* Custom DivIcons for Leaflet */
+.fl-marker-hub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.fl-marker-hub-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #005131;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 81, 49, 0.35);
+  border: 2px solid #ffffff;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 2;
+}
+
+.fl-marker-hub:hover .fl-marker-hub-icon {
+  transform: scale(1.15) translateY(-3px);
+}
+
+.fl-marker-hub-pulse {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 19px);
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(0, 81, 49, 0.4);
+  animation: fl-hub-pulse-radar 2s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
+  z-index: 1;
+}
+
+@keyframes fl-hub-pulse-radar {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.fl-marker-temp-badge {
+  margin-top: 4px;
+  background: #ffffff;
+  color: #005131;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Inter', monospace;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  border: 1px solid rgba(0, 81, 49, 0.2);
+  z-index: 3;
+}
+
+.fl-marker-temp-badge.warning {
+  background: #ffdcbe;
+  color: #693b00;
+  border-color: #693b00;
+}
+
+/* Delivery Stop Marker */
+.fl-marker-stop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.fl-marker-stop-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  font-family: 'Inter', monospace;
+  border: 2px solid #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fl-marker-stop:hover .fl-marker-stop-pin {
+  transform: scale(1.2) translateY(-2px);
+}
+
+.fl-marker-stop-pin.pending {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.fl-marker-stop-pin.delivered {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.fl-marker-stop-pin.failed {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.fl-marker-stop-label {
+  margin-top: 2px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Vehicle Marker */
+.fl-marker-vehicle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.fl-marker-vehicle-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #0284c7;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+  border: 2px solid #ffffff;
+  animation: fl-vehicle-float 3s infinite ease-in-out;
+}
+
+@keyframes fl-vehicle-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Farm Marker */
+.fl-marker-farm-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #40690a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(64, 105, 10, 0.35);
+}
+
+/* Leaflet Popup overrides */
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 33, 17, 0.18);
+  border: 1px solid rgba(0, 81, 49, 0.12);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.fl-popup-card {
+  padding: 14px 16px;
+  min-width: 230px;
+  max-width: 300px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.fl-popup-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #005131;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fl-popup-address {
+  font-size: 11.5px;
+  color: #55625a;
+  margin-bottom: 10px;
+}
+
+.fl-popup-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: #f0fdf4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.fl-popup-metric-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.fl-popup-metric-label {
+  font-size: 10px;
+  color: #55625a;
+  font-weight: 500;
+}
+
+.fl-popup-metric-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #005131;
+  font-family: 'Inter', monospace;
+}
+
+.fl-popup-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.fl-popup-btn {
+  flex: 1;
+  text-align: center;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.fl-popup-btn-primary {
+  background: #005131;
+  color: #ffffff;
+}
+
+.fl-popup-btn-primary:hover {
+  background: #176b45;
+  color: #ffffff;
+}
+
+.fl-popup-btn-outline {
+  background: #ffffff;
+  color: #005131;
+  border-color: #cce5d6;
+}
+
+.fl-popup-btn-outline:hover {
+  background: #f0fdf4;
+}
+
+/* Map Legend */
+.freshlink-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border-top: 1px solid #e3e8e2;
+  font-size: 11.5px;
+  color: #55625a;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.legend-dot.green {
+  background: #10b981;
+}
+
+.legend-dot.amber {
+  background: #f59e0b;
+}
+
+.legend-dot.blue {
+  background: #0284c7;
+}
+
+.legend-dot.purple {
+  background: #005131;
+}
