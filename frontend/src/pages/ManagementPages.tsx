@@ -36,7 +36,28 @@ export function AnalyticsPage(){
 
 export function InvoicesPage({restaurantId,accountant}:{restaurantId?:number;accountant:boolean}){
  const suffix=restaurantId?`?restaurantId=${restaurantId}`:''
- return <>{accountant&&<ActionForm title="Phát hành hóa đơn" path="/billing/invoices" fields={[{name:'orderId',label:'ID đơn hàng',type:'number',min:1},{name:'dueDate',label:'Hạn thanh toán',type:'date'},{name:'taxAmount',label:'Thuế',type:'number',min:0,initial:0},{name:'note',label:'Ghi chú',type:'textarea',required:false}]}/>}<DataTable path={`/billing/invoices${suffix}`} rowKey="invoice_id" columns={[[ 'invoice_code','Hóa đơn'],['order_id','Đơn hàng'],['issued_at','Ngày phát hành'],['due_date','Hạn thanh toán'],['total_amount','Tổng tiền'],['paid_amount','Đã trả'],['balance_amount','Còn lại'],['status','Trạng thái']]}/></>
+ const [selectedInvoiceId,setSelectedInvoiceId]=useState<number|null>(null)
+ const adjustmentsQuery=useQuery({queryKey:['adjustments',selectedInvoiceId],queryFn:()=>api<Row[]>(`/billing/invoices/${selectedInvoiceId}/adjustments`),enabled:selectedInvoiceId!=null})
+
+ return <>{accountant&&<>
+  <Card title="Quyết toán nhà cung cấp theo kỳ" style={{marginBottom:16}}>
+   <ActionForm title="Tạo đợt quyết toán NCC theo kỳ" path="/billing/settlements/period" fields={[{name:'supplierId',label:'ID Nhà cung cấp',type:'number',min:1},{name:'startDate',label:'Từ ngày',type:'date'},{name:'endDate',label:'Đến ngày',type:'date'}]}/>
+  </Card>
+  <ActionForm title="Phát hành hóa đơn" path="/billing/invoices" fields={[{name:'orderId',label:'ID đơn hàng',type:'number',min:1},{name:'dueDate',label:'Hạn thanh toán',type:'date'},{name:'taxAmount',label:'Thuế',type:'number',min:0,initial:0},{name:'note',label:'Ghi chú',type:'textarea',required:false}]}/>
+  <ActionForm title="Điều chỉnh công nợ (Credit / Debit Note)" path={v=>`/billing/invoices/${v.invoiceId}/adjust`} fields={[
+   {name:'invoiceId',label:'ID Hóa đơn',type:'number',min:1},
+   {name:'adjustmentType',label:'Loại điều chỉnh',type:'select',options:[{value:'CREDIT_NOTE',label:'Credit Note (Giảm nợ)'},{value:'DEBIT_NOTE',label:'Debit Note (Tăng nợ)'}]},
+   {name:'amount',label:'Số tiền điều chỉnh (đ)',type:'number',min:1},
+   {name:'reason',label:'Lý do (sai lệch, bồi thường, chiết khấu)',type:'textarea'}
+  ]}/>
+ </>}
+ <DataTable path={`/billing/invoices${suffix}`} rowKey="invoice_id" columns={[[ 'invoice_id','ID'],[ 'invoice_code','Hóa đơn'],['order_id','Đơn hàng'],['issued_at','Ngày phát hành'],['due_date','Hạn thanh toán'],['total_amount','Tổng tiền'],['paid_amount','Đã trả'],['balance_amount','Còn lại'],['status','Trạng thái']]} actions={r=><Button size="small" onClick={()=>setSelectedInvoiceId(Number(r.invoice_id))}>Xem điều chỉnh</Button>}/>
+ {selectedInvoiceId!=null&&<Card title={`Lịch sử Credit/Debit Notes — Hóa đơn #${selectedInvoiceId}`} style={{marginTop:16}} extra={<Button onClick={()=>setSelectedInvoiceId(null)}>Đóng</Button>}>
+  {adjustmentsQuery.error&&<Alert type="error" message={adjustmentsQuery.error.message}/>}
+  <List loading={adjustmentsQuery.isPending} dataSource={adjustmentsQuery.data??[]} renderItem={it=><List.Item><List.Item.Meta title={<Space><span>{String(it.adjustment_code)}</span><Tag color={it.adjustment_type==='CREDIT_NOTE'?'green':'blue'}>{String(it.adjustment_type)}</Tag><b>{String(it.amount)} đ</b></Space>} description={<p>{String(it.reason)} · <small>{String(it.created_at)}</small></p>}/></List.Item>}/>
+  {adjustmentsQuery.data?.length===0&&<p>Hóa đơn chưa có điều chỉnh nào.</p>}
+ </Card>}
+ </>
 }
 
 export function SystemCheckPage(){

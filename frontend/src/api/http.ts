@@ -41,6 +41,10 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): P
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
     const headers = new Headers(init?.headers)
+    if (!headers.has('X-Request-Id')) {
+      const reqId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      headers.set('X-Request-Id', reqId)
+    }
     if (organizationId != null && !String(input).includes('/public/')) headers.set('X-Organization-Id', String(organizationId))
     return await fetch(input, { ...init, headers, signal: controller.signal })
   } catch (error) {

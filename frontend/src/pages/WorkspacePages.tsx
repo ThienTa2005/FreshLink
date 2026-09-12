@@ -22,7 +22,66 @@ export function DetailPage({type,id}:{type:string;id:number}){
  if(type==='orders')return <OrderDetail orderId={id}/>
  if(type==='trips')return <TripPage initialSelected={id}/>
  if(type==='batches')return <BatchDetail id={id}/>
+ if(type==='claims')return <ClaimDossierDetail id={id}/>
+ if(type==='settlements')return <SettlementStatementDetail id={id}/>
  return <RecordDetail type={type} id={id}/>
+}
+function ClaimDossierDetail({id}:{id:number}){
+ const {membership}=useAuth();const q=useQuery({queryKey:['claim-dossier',id],queryFn:()=>api<Row>(`/claims/${id}/dossier`)});const d=q.data
+ const complaint=(d?.complaint as Row)||{};const items=(d?.items as Row[])||[];const delivery=(d?.delivery as Row)||null;const notes=(d?.notes as Row[])||[]
+ const isStaff=Boolean(d?.isInternalStaff)
+ const [noteContent,setNoteContent]=useState('');const [isInternal,setIsInternal]=useState(true);const [delegateDept,setDelegateDept]=useState('QC')
+ const [closeModal,setCloseModal]=useState(false);const [resolution,setResolution]=useState('');const [refundAmount,setRefundAmount]=useState(0);const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+
+ async function postNote(){if(!noteContent.trim())return;setBusy(true);setError('');try{await api(`/claims/${id}/notes`,'POST',{content:noteContent,isInternal});setNoteContent('');await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function delegate(){setBusy(true);setError('');try{await api(`/claims/${id}/delegate`,'POST',{department:delegateDept,note:`Chuyển tiếp xử lý: ${delegateDept}`});await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function closeCase(){if(!resolution.trim())return;setBusy(true);setError('');try{await api(`/claims/${id}/close`,'POST',{finalResolution:resolution,refundAmount});setCloseModal(false);await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+
+ return <Card title={<Space><span>Hồ sơ khiếu nại 360° #{id}</span><span className={`tag ${complaint.status==='CLOSED'?'tag-green':'tag-gold'}`}>{display(complaint.status)}</span></Space>} loading={q.isPending}>
+  {error&&<Alert type="error" message={error} style={{marginBottom:12}}/>}
+  {Boolean(d?.isSlaOverdue)&&<Alert type="error" message="CẢNH BÁO: Khiếu nại đã quá hạn cam kết SLA xử lý!" showIcon style={{marginBottom:12}}/>}
+  <Descriptions bordered column={{xs:1,sm:2,md:3}}>
+   <Descriptions.Item label="Mã khiếu nại">{String(complaint.complaint_code??'')}</Descriptions.Item>
+   <Descriptions.Item label="Khách hàng">{String(complaint.restaurant_name??'')}</Descriptions.Item>
+   <Descriptions.Item label="Đơn liên quan"><Link to={`/portal/orders/${complaint.order_id}`}>{String(complaint.order_code??'')}</Link></Descriptions.Item>
+   <Descriptions.Item label="Hạn phản hồi">{String(complaint.first_response_due_at??'Chưa đặt')}</Descriptions.Item>
+   <Descriptions.Item label="Hạn giải quyết">{String(complaint.resolution_due_at??'Chưa đặt')}</Descriptions.Item>
+   <Descriptions.Item label="Bộ phận">{String(complaint.assigned_department??'CSKH')}</Descriptions.Item>
+   <Descriptions.Item label="Mô tả" span={3}>{String(complaint.description??'')}</Descriptions.Item>
+   {complaint.final_resolution!=null&&<Descriptions.Item label="Phương án giải quyết" span={3}><b style={{color:'#176b45'}}>{String(complaint.final_resolution)}</b></Descriptions.Item>}
+  </Descriptions>
+  {delivery&&<Card title="Giao nhận liên quan" size="small" style={{marginTop:16}}><p>Chuyến xe: <b>{String(delivery.trip_code??'')}</b> · Tài xế: <b>{String(delivery.driver_name??'')}</b> ({String(delivery.driver_phone??'')})</p><p>Trạng thái: {display(delivery.stop_status)} · Đến lúc: {display(delivery.actual_arrival_at,'arrival')}</p></Card>}
+  <Card title="Sản phẩm & Lô hàng ảnh hưởng" size="small" style={{marginTop:16}}><List dataSource={items} renderItem={it=><List.Item><b>{String(it.sku_name)}</b> — Lô: {String(it.batch_code??'Chưa rõ')} · SL ảnh hưởng: <b>{String(it.affected_quantity)}</b></List.Item>}/></Card>
+  <Card title="Lịch sử ghi chú & Phản hồi" size="small" style={{marginTop:16}}>
+   <List dataSource={notes} renderItem={n=><List.Item><List.Item.Meta title={<Space><span>{String(n.author_name??'Hệ thống')}</span><span className={`tag ${n.is_internal?'tag-gold':'tag-green'}`}>{n.is_internal?'Ghi chú nội bộ':'Gửi nhà hàng'}</span><small>{String(n.created_at)}</small></Space>} description={<p style={{margin:0}}>{String(n.note_content)}</p>}/></List.Item>}/>
+   <div style={{marginTop:16}}><Input.TextArea rows={2} placeholder="Nhập ghi chú / nội dung phản hồi..." value={noteContent} onChange={e=>setNoteContent(e.target.value)}/><Space style={{marginTop:8}}>{isStaff&&<label><input type="checkbox" checked={isInternal} onChange={e=>setIsInternal(e.target.checked)}/> Ghi chú nội bộ (chỉ nhân viên)</label>}<Button type="primary" loading={busy} disabled={!noteContent.trim()} onClick={()=>void postNote()}>Gửi ghi chú</Button></Space></div>
+  </Card>
+  {isStaff&&complaint.status!=='CLOSED'&&<Space style={{marginTop:16}} wrap>
+   <select value={delegateDept} onChange={e=>setDelegateDept(e.target.value)} style={{height:38,padding:'0 10px',borderRadius:6}}>
+    <option value="QC">Chuyển cho QC</option><option value="COORDINATOR">Chuyển cho Điều phối</option><option value="ACCOUNTANT">Chuyển cho Kế toán</option><option value="CSKH">Trả về CSKH</option>
+   </select>
+   <Button onClick={()=>void delegate()} loading={busy}>Chuyển bộ phận</Button>
+   <Button type="primary" danger onClick={()=>setCloseModal(true)}>Đóng khiếu nại (Đủ điều kiện)</Button>
+  </Space>}
+  {closeModal&&<Card title="Đóng khiếu nại" style={{marginTop:16}}><Input.TextArea rows={3} placeholder="Mô tả nguyên nhân và giải pháp đã thực hiện..." value={resolution} onChange={e=>setResolution(e.target.value)}/><div style={{marginTop:8}}><label>Số tiền hoàn / bồi thường (đ): </label><input type="number" min="0" value={refundAmount} onChange={e=>setRefundAmount(Number(e.target.value))} style={{height:36,padding:'0 10px'}}/></div><Space style={{marginTop:12}}><Button onClick={()=>setCloseModal(false)}>Hủy</Button><Button type="primary" danger loading={busy} disabled={!resolution.trim()} onClick={()=>void closeCase()}>Xác nhận đóng hồ sơ</Button></Space></Card>}
+ </Card>
+}
+function SettlementStatementDetail({id}:{id:number}){
+ const q=useQuery({queryKey:['settlement-statement',id],queryFn:()=>api<Row>(`/billing/settlements/${id}/statement`)});const d=q.data
+ const s=(d?.settlement as Row)||{};const items=(d?.items as Row[])||[]
+ return <Card title={`Bảng kê đối soát chi tiết #${id}`} loading={q.isPending} extra={<Button onClick={()=>window.print()}>In bảng kê</Button>}>
+  <Descriptions bordered column={{xs:1,sm:2}}>
+   <Descriptions.Item label="Mã đối soát">{String(s.settlement_code??'')}</Descriptions.Item>
+   <Descriptions.Item label="Nhà cung cấp">{String(s.supplier_name??'')}</Descriptions.Item>
+   <Descriptions.Item label="Kỳ đối soát">{String(s.period_start_date??'')} đến {String(s.period_end_date??'')}</Descriptions.Item>
+   <Descriptions.Item label="Tổng tiền thanh toán"><b style={{color:'#176b45'}}>{display(d?.totalAmount??s.payable_amount,'price')} đ</b></Descriptions.Item>
+   <Descriptions.Item label="Trạng thái">{display(s.status)}</Descriptions.Item>
+   <Descriptions.Item label="Chứng từ">{String(s.external_reference??'Chưa có')}</Descriptions.Item>
+  </Descriptions>
+  <Card title="Chi tiết các lô hàng trong kỳ" size="small" style={{marginTop:16}}>
+   <DataTable path={`/billing/settlements/${id}/statement`} rowKey="batch_id" columns={[['batch_code','Mã lô'],['sku_name','Mặt hàng'],['settled_quantity','Số lượng'],['supplier_unit_price','Đơn giá'],['subtotal','Thành tiền']]}/>
+  </Card>
+ </Card>
 }
 function RecordDetail({type,id}:{type:string;id:number}){
  const path=type==='settlements'?`/workspace/settlements/${id}`:`/${type}/${id}`;const q=useQuery({queryKey:[path],queryFn:()=>api<Row>(path)})

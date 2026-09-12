@@ -25,6 +25,9 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
   const settlements = useRows('/billing/settlements', can('ACCOUNTANT'))
   const orders = useRows(`/operations/orders?date=${date}`, can('OPERATIONS_COORDINATOR'))
   const batches = useRows('/batches', can('OPERATIONS_COORDINATOR') || can('QUALITY_INSPECTOR'))
+  const [cskhStatus, setCskhStatus] = useState<string>('')
+  const [cskhDept, setCskhDept] = useState<string>('')
+  const [cskhOverdue, setCskhOverdue] = useState(false)
   const dashboard = useQuery({ queryKey: ['dashboard', date], queryFn: () => api<Record<string, number>>(`/operations/dashboard?date=${date}`), enabled: can('OPERATIONS_COORDINATOR') })
   const docks = options(lookup.data?.addresses.filter(a => a.address_type === 'CROSS_DOCK'), 'address_id', 'address_name')
   return <><Space wrap className="action-card"><strong>Ngày vận hành</strong><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Space>
@@ -52,7 +55,27 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
         { name: 'evidenceId', label: 'Ảnh kiểm nhận', type: 'file', required: false },
         ...[['SPECIFICATION', 'Đúng quy cách'], ['PACKAGING', 'Bao bì'], ['LABEL', 'Nhãn'], ['APPEARANCE', 'Ngoại quan']].map(([name, label]) => ({ name, label, type: 'select' as const, initial: 'PASS', options: [{ value: 'PASS', label: 'Đạt' }, { value: 'REVIEW', label: 'Cần kiểm lại' }, { value: 'FAIL', label: 'Không đạt' }] })),
       ]} transform={v => ({ accepted: v.accepted, review: v.review, rejected: v.rejected, note: v.note, evidenceId: v.evidenceId, checklist: Object.fromEntries(['SPECIFICATION', 'PACKAGING', 'LABEL', 'APPEARANCE'].map(k => [k, v[k]])) })} />}</> }] : []),
-      ...(can('CUSTOMER_SUPPORT') ? [{ key: 'claims', label: 'Khiếu nại', children: <><DataTable path="/claims" rowKey="complaint_id" columns={[[ 'complaint_id', 'ID' ], ['complaint_code', 'Mã'], ['description', 'Vấn đề'], ['status', 'Trạng thái'], ['final_resolution', 'Phương án']]} /><ActionForm title="Phương án xử lý" path={v => `/claims/${v.id}/resolve`} fields={[{ name: 'id', label: 'Khiếu nại', type: 'select', options: options(claimRows.data, 'complaint_id', 'complaint_code') }, { name: 'resolution', label: 'Phương án đã thống nhất', type: 'textarea' }]} transform={v => ({ resolution: v.resolution })} /></> }] : []),
+      ...(can('CUSTOMER_SUPPORT') ? [{ key: 'claims', label: 'Hộp thư CSKH', children: <><Space wrap style={{ marginBottom: 16 }}>
+        <select value={cskhStatus} onChange={e => setCskhStatus(e.target.value)} style={{ height: 38, padding: '0 10px', borderRadius: 6 }}>
+          <option value="">-- Tất cả trạng thái --</option>
+          <option value="SUBMITTED">Mới gửi</option>
+          <option value="IN_REVIEW">Đang xử lý</option>
+          <option value="RESOLVED">Đã có phương án</option>
+          <option value="CLOSED">Đã đóng</option>
+          <option value="REJECTED">Từ chối</option>
+        </select>
+        <select value={cskhDept} onChange={e => setCskhDept(e.target.value)} style={{ height: 38, padding: '0 10px', borderRadius: 6 }}>
+          <option value="">-- Tất cả bộ phận --</option>
+          <option value="CSKH">CSKH</option>
+          <option value="QC">Kiểm định QC</option>
+          <option value="COORDINATOR">Điều phối giao</option>
+          <option value="ACCOUNTANT">Kế toán</option>
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={cskhOverdue} onChange={e => setCskhOverdue(e.target.checked)} />
+          <b style={{ color: cskhOverdue ? '#cf1322' : 'inherit' }}>Chỉ quá hạn SLA</b>
+        </label>
+      </Space><DataTable path={`/claims/inbox?${cskhStatus ? `status=${cskhStatus}&` : ''}${cskhDept ? `department=${cskhDept}&` : ''}${cskhOverdue ? 'overdueOnly=true&' : ''}`} rowKey="complaint_id" columns={[[ 'complaint_code', 'Mã' ], ['restaurant_name', 'Khách hàng'], ['assigned_department', 'Bộ phận'], ['description', 'Vấn đề'], ['status', 'Trạng thái'], ['first_response_due_at', 'Hạn phản hồi'], ['resolution_due_at', 'Hạn giải quyết']]} actions={r => <Link to={`/portal/claims/${r.complaint_id}`}>Hồ sơ 360°</Link>} /></> }] : []),
       ...(can('ACCOUNTANT') ? [{ key: 'billing', label: 'Đối soát', children: <><DataTable path="/billing/orders" rowKey="order_id" columns={[[ 'order_id', 'ID' ], ['order_code', 'Đơn'], ['total_amount', 'Phải thu'], ['paid', 'Đã thu'], ['payment_status', 'Trạng thái']]} /><ActionForm title="Thanh toán thủ công" path="/billing/payments" fields={[
         { name: 'orderId', label: 'Đơn hàng', type: 'select', options: options(billOrders.data, 'order_id', 'order_code') }, { name: 'amount', label: 'Số tiền (đ)', type: 'number', min: 0.01 }, { name: 'method', label: 'Phương thức', type: 'select', options: [{ value: 'BANK_TRANSFER', label: 'Chuyển khoản' }, { value: 'CASH', label: 'Tiền mặt' }] }, { name: 'reference', label: 'Mã chứng từ / tham chiếu' },
       ]} /><ActionForm title="Điều chỉnh tiền đơn" path={v => `/billing/orders/${v.orderId}/adjust`} fields={[

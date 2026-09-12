@@ -31,6 +31,12 @@ public class DeliveryService {
                 if(!order.get("delivery_date").toString().equals(r.date().toString()) || !Set.of("CONFIRMED","SOURCING").contains(order.get("order_status"))) throw new IllegalArgumentException("Đơn phải cùng ngày giao và chưa xếp chuyến");
                 var allocations=jdbc.queryForList("SELECT a.*,i.order_id FROM batch_allocations a JOIN order_items i ON i.order_item_id=a.order_item_id WHERE i.order_id=? AND a.allocation_status='RESERVED' FOR UPDATE",orderId);
                 if(allocations.isEmpty()) throw new IllegalArgumentException("Đơn chưa được chia hàng");
+                BigDecimal required=jdbc.queryForObject("SELECT COALESCE(SUM(confirmed_quantity),0) FROM order_items WHERE order_id=? AND item_status<>'CANCELLED'",BigDecimal.class,orderId);
+                BigDecimal allocated=allocations.stream().map(al->(BigDecimal)al.get("allocated_quantity")).reduce(BigDecimal.ZERO,BigDecimal::add);
+                if(allocated.compareTo(required)<0) {
+                    int approvedRemedies=jdbc.queryForObject("SELECT COUNT(*) FROM order_remedies WHERE order_id=? AND status='ACCEPTED'",Integer.class,orderId);
+                    if(approvedRemedies==0) throw new IllegalArgumentException("Đơn chưa đủ lượng phân bổ; cần có phương án giao một phần được duyệt trước khi xếp chuyến");
+                }
                 long stop=sql.insert("INSERT INTO trip_stops(trip_id,order_id,delivery_address_id,stop_sequence) VALUES (?,?,?,?)",trip,orderId,order.get("delivery_address_id"),++sequence);
                 for(var allocation:allocations) {
                     sql.insert("INSERT INTO delivery_items(trip_stop_id,order_item_id,batch_allocation_id,loaded_quantity) VALUES (?,?,?,?)",stop,allocation.get("order_item_id"),allocation.get("batch_allocation_id"),allocation.get("allocated_quantity"));
@@ -41,6 +47,47 @@ public class DeliveryService {
             return trip;
         });
     }
+    @Transactional public long redeliver(Actor actor, long failedStopId, Long newTripId, String key) {
+        actor.requireRole("OPERATIONS_COORDINATOR");
+        return dedup.execute(actor.userId(), key, "REDELIVER_" + failedStopId, "", () -> {
+            var oldStop = jdbc.queryForMap("SELECT * FROM trip_stops WHERE trip_stop_id=? FOR UPDATE", failedStopId);
+            if (!Set.of("FAILED", "PARTIALLY_DELIVERED").contains(oldStop.get("status"))) {
+                throw new IllegalArgumentException("Chỉ tái giao cho điểm giao thất bại hoặc giao thiếu");
+            }
+            if (jdbc.queryForObject("SELECT COUNT(*) FROM trip_stops WHERE redelivered_from_stop_id=?", Integer.class, failedStopId) > 0) {
+                throw new IllegalArgumentException("Điểm giao này đã được lập lịch tái giao");
+            }
+            long orderId = ((Number) oldStop.get("order_id")).longValue();
+            long targetTripId;
+            if (newTripId != null) {
+                targetTripId = newTripId;
+            } else {
+                long originId = ((Number) jdbc.queryForObject("SELECT origin_address_id FROM delivery_trips WHERE trip_id=?", Long.class, oldStop.get("trip_id"))).longValue();
+                targetTripId = sql.insert("INSERT INTO delivery_trips(trip_code,trip_date,origin_address_id,driver_user_id,created_by) VALUES (?,CURRENT_DATE(),?,?,?)",
+                    "TR-RE-" + UUID.randomUUID().toString().substring(0, 20), originId, actor.userId(), actor.userId());
+            }
+            int nextSeq = jdbc.queryForObject("SELECT COALESCE(MAX(stop_sequence), 0) + 1 FROM trip_stops WHERE trip_id=?", Integer.class, targetTripId);
+            int round = ((Number) oldStop.get("delivery_round")).intValue() + 1;
+            long newStopId = sql.insert("""
+                INSERT INTO trip_stops(trip_id, order_id, delivery_address_id, stop_sequence, delivery_round, redelivered_from_stop_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, targetTripId, orderId, oldStop.get("delivery_address_id"), nextSeq, round, failedStopId);
+
+            var oldItems = jdbc.queryForList("SELECT * FROM delivery_items WHERE trip_stop_id=?", failedStopId);
+            for (var item : oldItems) {
+                BigDecimal loaded = (BigDecimal) item.get("loaded_quantity");
+                BigDecimal delivered = (BigDecimal) item.get("delivered_quantity");
+                BigDecimal remaining = loaded.subtract(delivered == null ? BigDecimal.ZERO : delivered);
+                if (remaining.signum() > 0) {
+                    sql.insert("INSERT INTO delivery_items(trip_stop_id, order_item_id, batch_allocation_id, loaded_quantity) VALUES (?, ?, ?, ?)",
+                        newStopId, item.get("order_item_id"), item.get("batch_allocation_id"), remaining);
+                }
+            }
+            jdbc.update("UPDATE customer_orders SET order_status='READY_FOR_DELIVERY' WHERE order_id=?", orderId);
+            return newStopId;
+        });
+    }
+
     public Map<String,Object> trip(Actor actor,long id) {
         var trip=jdbc.queryForMap("SELECT * FROM delivery_trips WHERE trip_id=?",id);
         requireDriver(actor,trip);

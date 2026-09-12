@@ -35,6 +35,65 @@ public class SettlementController {
         if(supplierId!=null) {a.requireOrganization(supplierId,"SUPPLIER_MANAGER");return ApiResponse.success(jdbc.queryForList("SELECT * FROM supplier_settlements WHERE supplier_id=? ORDER BY settlement_id DESC LIMIT 200",supplierId),"Đối soát và chi trả");}
         a.requireRole("ACCOUNTANT");return ApiResponse.success(jdbc.queryForList("SELECT * FROM supplier_settlements ORDER BY settlement_id DESC LIMIT 200"),"Đối soát và chi trả");
     }
+    public record PeriodSettlement(@NotNull Long supplierId,@NotNull java.time.LocalDate periodStart,@NotNull java.time.LocalDate periodEnd,@NotNull @Digits(integer=13,fraction=2) BigDecimal adjustment,@NotBlank @Size(max=500) String note){}
+    @PostMapping("/settlements/period") @Transactional public ApiResponse<?> createPeriod(@AuthenticationPrincipal Actor a,@Valid @RequestBody PeriodSettlement r,@RequestHeader("Idempotency-Key") String key){
+        a.requireRole("ACCOUNTANT");
+        return ApiResponse.success(dedup.execute(a.userId(),key,"SETTLEMENT_PERIOD_"+r.supplierId()+"_"+r.periodStart()+"_"+r.periodEnd(),r.toString(),()->{
+            var batches=jdbc.queryForList("""
+                SELECT b.*, i.supplier_unit_price, i.commission_rate
+                FROM batches b
+                JOIN supply_request_items i ON i.supply_request_item_id = b.supply_request_item_id
+                WHERE b.supplier_id = ? AND b.accepted_quantity > 0
+                  AND DATE(b.received_at) BETWEEN ? AND ?
+                  AND b.batch_id NOT IN (SELECT batch_id FROM settlement_items)
+                FOR UPDATE
+                """,r.supplierId(),r.periodStart(),r.periodEnd());
+            if(batches.isEmpty())throw new IllegalArgumentException("Không có lô hàng đạt mới nào trong kỳ để đối soát");
+            BigDecimal totalGross=BigDecimal.ZERO,totalCommission=BigDecimal.ZERO;
+            for(var b:batches){
+                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price"),commRate=(BigDecimal)b.get("commission_rate");
+                BigDecimal gross=qty.multiply(price).setScale(2,RoundingMode.HALF_UP);
+                BigDecimal commission=gross.multiply(commRate).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
+                totalGross=totalGross.add(gross);totalCommission=totalCommission.add(commission);
+            }
+            BigDecimal totalNet=totalGross.subtract(totalCommission).add(r.adjustment());
+            if(totalNet.signum()<0)throw new IllegalArgumentException("Giá trị đối soát không được âm");
+            long settlementId=sql.insert("""
+                INSERT INTO supplier_settlements(settlement_code,supplier_id,period_start,period_end,gross_goods_amount,commission_amount,adjustment_amount,payable_amount,status,created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED', ?)
+                ""","ST-"+UUID.randomUUID(),r.supplierId(),r.periodStart(),r.periodEnd(),totalGross,totalCommission,r.adjustment(),totalNet,a.userId());
+            for(var b:batches){
+                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price"),commRate=(BigDecimal)b.get("commission_rate");
+                BigDecimal gross=qty.multiply(price).setScale(2,RoundingMode.HALF_UP);
+                BigDecimal commission=gross.multiply(commRate).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
+                BigDecimal net=gross.subtract(commission);
+                jdbc.update("""
+                    INSERT INTO settlement_items(settlement_id, batch_id, delivered_quantity, supplier_unit_price, gross_amount, commission_rate, commission_amount, adjustment_amount, net_amount, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    """,settlementId,b.get("batch_id"),qty,price,gross,commRate,commission,net,r.note());
+            }
+            jdbc.update("INSERT INTO audit_logs(actor_user_id, organization_id, action_code, entity_type, entity_id, new_data) VALUES (?, ?, 'CONFIRM_PERIOD_SETTLEMENT', 'SETTLEMENT', ?, JSON_OBJECT('batches', ?, 'payable', ?))",
+                a.userId(),r.supplierId(),settlementId,batches.size(),totalNet);
+            return settlementId;
+        }),"Đã lập bảng đối soát kỳ nhà cung cấp");
+    }
+    @GetMapping("/settlements/{id}/statement") public ApiResponse<?> statement(@AuthenticationPrincipal Actor a,@PathVariable long id){
+        var s=jdbc.queryForList("SELECT * FROM supplier_settlements WHERE settlement_id=?",id);
+        if(s.isEmpty())throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Không tìm thấy đối soát");
+        long suppId=((Number)s.get(0).get("supplier_id")).longValue();
+        if(!a.hasRole("ACCOUNTANT","SYSTEM_ADMIN"))a.requireOrganization(suppId,"SUPPLIER_MANAGER");
+        var items=jdbc.queryForList("""
+            SELECT si.*, b.batch_code, s.sku_name, s.base_unit
+            FROM settlement_items si
+            JOIN batches b ON b.batch_id = si.batch_id
+            JOIN product_skus s ON s.sku_id = b.sku_id
+            WHERE si.settlement_id = ?
+            """,id);
+        Map<String,Object> res=new LinkedHashMap<>(s.get(0));
+        res.put("items",items);
+        return ApiResponse.success(res,"Bảng kê đối soát NCC");
+    }
+
     public record Pay(@NotBlank @Size(max=150) String reference) {}
     @PostMapping("/settlements/{id}/pay") @Transactional public ApiResponse<?> pay(@AuthenticationPrincipal Actor a,@PathVariable long id,@Valid @RequestBody Pay r,@RequestHeader("Idempotency-Key") String key) {
         a.requireRole("ACCOUNTANT");return ApiResponse.success(dedup.execute(a.userId(),key,"PAY_SETTLEMENT_"+id,r.toString(),()->{

@@ -5,8 +5,11 @@ import org.springframework.security.access.AccessDeniedException;
 
 public record Actor(long userId, String email, String fullName, List<Membership> memberships) {
     public record Membership(long organizationId, String organizationName, String organizationType, List<String> roles) {}
-    public boolean hasRole(String role) {
-        return memberships.stream().anyMatch(m -> m.roles().contains(role));
+    public boolean hasRole(String... roles) {
+        for (String role : roles) {
+            if (memberships.stream().anyMatch(m -> m.roles().contains(role))) return true;
+        }
+        return false;
     }
     public boolean belongsTo(long organizationId) {
         return memberships.stream().anyMatch(m -> m.organizationId() == organizationId);

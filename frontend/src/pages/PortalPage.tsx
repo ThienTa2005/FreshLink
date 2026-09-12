@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Alert, Button, Card, Drawer, Layout, Result, Select, Space } from 'antd'
+import { Alert, Badge, Button, Card, Drawer, Layout, Result, Select, Space } from 'antd'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/http'
+import { subscribeOfflineQueue, flushOfflineQueue } from '../api/offlineQueue'
 import { useAuth } from '../auth/AuthContext'
 import { Logo } from '../components/Brand'
 import GlobalSearch from '../components/GlobalSearch'
@@ -15,7 +18,10 @@ import { DashboardPage, DetailPage, AccountPage, AdminPage } from './WorkspacePa
 
 export default function PortalPage(){
  const {user,membership,selectWorkspace,logout}=useAuth();const location=useLocation();const navigate=useNavigate();const [mobile,setMobile]=useState(false);const [dirty,setDirty]=useState(false)
+ const [pendingOffline, setPendingOffline] = useState(0)
+ const unreadQuery = useQuery({ queryKey: ['notifications-unread'], queryFn: () => api<{ unread_count: number }>('/notifications/unread-count'), refetchInterval: 30000 })
  const m=membership;const has=(...r:string[])=>can(m,...r)
+ useEffect(()=>{return subscribeOfflineQueue(count=>setPendingOffline(count))},[])
  useEffect(()=>{const saved=()=>setDirty(false);window.addEventListener('freshlink:saved',saved);return()=>window.removeEventListener('freshlink:saved',saved)},[])
  useEffect(()=>{const guard=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[dirty])
  if(!user)return <Navigate to="/login" replace/>
@@ -54,5 +60,5 @@ export default function PortalPage(){
  else content=<OperationsPage initialTab={({orders:'overview','supply-requests':'source',batches:'gate',claims:'claims',assets:'assets'} as Record<string,string>)[root]}/>
  function go(path:string){if(dirty&&!window.confirm('Bạn có nội dung chưa lưu. Rời màn hình?'))return;setDirty(false);navigate(path);setMobile(false)}
  const sidebar=<aside className="portal-sidebar"><div className="portal-logo"><Logo/></div><div className="org-switch"><label>Không gian làm việc</label><Select value={m.organizationId} options={user.memberships.map(x=>({value:x.organizationId,label:x.organizationName}))} onChange={value=>{if(dirty&&!window.confirm('Đổi đơn vị sẽ bỏ các thay đổi chưa lưu. Tiếp tục?'))return;selectWorkspace(value);setDirty(false);navigate('/portal/dashboard')}}/></div><nav aria-label="Điều hướng nghiệp vụ">{nav.filter(n=>n.allow).map(n=><a href={'/portal/'+n.key} key={n.key} className={root===n.key?'active':''} onClick={e=>{e.preventDefault();go('/portal/'+n.key)}}>{n.label}</a>)}</nav></aside>
- return <Layout className="portal-layout">{sidebar}<Drawer placement="left" open={mobile} onClose={()=>setMobile(false)}>{sidebar}</Drawer><div className="portal-main"><header className="portal-header"><Button className="menu-trigger" onClick={()=>setMobile(true)}>☰</Button><GlobalSearch/><Space wrap><Link to="/portal/notifications">Thông báo</Link><span>{user.fullName}<small style={{display:'block'}}>{m.roles.map(r=>roleNames[r]??r).join(', ')}</small></span><Button onClick={()=>void logout()}>Đăng xuất</Button></Space></header><main className="portal-content" onChangeCapture={()=>setDirty(true)}><h2>{nav.find(n=>n.key===root)?.label??'Chi tiết nghiệp vụ'}</h2>{has('SYSTEM_ADMIN')&&<Alert type="info" showIcon message="Đang thao tác bằng tài khoản quản trị. Thay đổi nghiệp vụ ghi nhận người thực hiện là bạn."/>}<section key={m.organizationId+':'+segment}>{content}</section></main></div></Layout>
+ return <Layout className="portal-layout">{sidebar}<Drawer placement="left" open={mobile} onClose={()=>setMobile(false)}>{sidebar}</Drawer><div className="portal-main"><header className="portal-header"><Button className="menu-trigger" onClick={()=>setMobile(true)}>☰</Button><GlobalSearch/><Space wrap>{pendingOffline>0&&<Button size="small" type="primary" danger onClick={()=>void flushOfflineQueue()}>Đồng bộ {pendingOffline} ngoại tuyến</Button>}<Badge count={unreadQuery.data?.unread_count??0} size="small"><Link to="/portal/notifications">Thông báo</Link></Badge><span>{user.fullName}<small style={{display:'block'}}>{m.roles.map(r=>roleNames[r]??r).join(', ')}</small></span><Button onClick={()=>void logout()}>Đăng xuất</Button></Space></header><main className="portal-content" onChangeCapture={()=>setDirty(true)}>{pendingOffline>0&&<Alert type="warning" showIcon style={{marginBottom:16}} message={<Space><span>Đang có {pendingOffline} thao tác tài xế lưu ngoại tuyến. Kết nối mạng để tự đồng bộ.</span><Button size="small" type="primary" onClick={()=>void flushOfflineQueue()}>Đồng bộ ngay</Button></Space>}/>}<h2>{nav.find(n=>n.key===root)?.label??'Chi tiết nghiệp vụ'}</h2>{has('SYSTEM_ADMIN')&&<Alert type="info" showIcon message="Đang thao tác bằng tài khoản quản trị. Thay đổi nghiệp vụ ghi nhận người thực hiện là bạn."/>}<section key={m.organizationId+':'+segment}>{content}</section></main></div></Layout>
 }

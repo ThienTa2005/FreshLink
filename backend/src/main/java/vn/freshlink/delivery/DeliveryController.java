@@ -20,4 +20,6 @@ public class DeliveryController {
     @PostMapping("/trips/{id}/start") public ApiResponse<?> start(@AuthenticationPrincipal Actor a,@PathVariable long id) {service.start(a,id);return ApiResponse.success(null,"Đã nhận hàng và bắt đầu chuyến");}
     @PostMapping("/stops/{id}/deliver") public ApiResponse<?> deliver(@AuthenticationPrincipal Actor a,@PathVariable long id,@Valid @RequestBody DeliveryService.Proof r,@RequestHeader("Idempotency-Key") String key) {return ApiResponse.success(service.confirm(a,id,r,key,false),"Đã ghi nhận kết quả giao");}
     @PostMapping("/stops/{id}/receive") public ApiResponse<?> receive(@AuthenticationPrincipal Actor a,@PathVariable long id,@Valid @RequestBody DeliveryService.Proof r,@RequestHeader("Idempotency-Key") String key) {return ApiResponse.success(service.confirm(a,id,r,key,true),"Đã xác nhận nhận hàng");}
+    @PostMapping("/stops/{id}/redeliver") public ApiResponse<?> redeliver(@AuthenticationPrincipal Actor a,@PathVariable long id,@RequestParam(required=false) Long tripId,@RequestHeader("Idempotency-Key") String key) {return ApiResponse.success(service.redeliver(a,id,tripId,key),"Đã lên lịch giao bù");}
 }
+

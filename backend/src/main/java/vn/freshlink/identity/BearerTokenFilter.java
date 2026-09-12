@@ -33,6 +33,12 @@ public class BearerTokenFilter extends OncePerRequestFilter {
                 var context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(new UsernamePasswordAuthenticationToken(actor, null, authorities));
                 SecurityContextHolder.setContext(context);
+                org.slf4j.MDC.put("userId", String.valueOf(actor.userId()));
+                org.slf4j.MDC.put("userEmail", actor.email());
+                if (!actor.memberships().isEmpty()) {
+                    org.slf4j.MDC.put("organizationId", String.valueOf(actor.memberships().get(0).organizationId()));
+                    org.slf4j.MDC.put("roles", String.join(",", actor.memberships().get(0).roles()));
+                }
             }
         }
         chain.doFilter(req, res);
