@@ -148,7 +148,7 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
   const layerGroupRef = useRef<L.LayerGroup | null>(null)
 
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'HUBS' | 'STOPS' | 'VEHICLES'>('ALL')
-  const [mapLayerType, setMapLayerType] = useState<'VOYAGER' | 'OSM'>('VOYAGER')
+  const [mapLayerType, setMapLayerType] = useState<'OSM' | 'SATELLITE'>('OSM')
 
   const tileLayerRef = useRef<L.TileLayer | null>(null)
 
@@ -169,13 +169,12 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
     L.control.zoom({ position: 'bottomright' }).addTo(map)
 
     const tileUrl =
-      mapLayerType === 'VOYAGER'
-        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      mapLayerType === 'SATELLITE'
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
     const tileLayer = L.tileLayer(tileUrl, {
-      maxZoom: 19,
-      subdomains: 'abcd'
+      maxZoom: mapLayerType === 'SATELLITE' ? 18 : 19
     })
     tileLayer.addTo(map)
     tileLayerRef.current = tileLayer
@@ -202,13 +201,12 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
     }
 
     const tileUrl =
-      mapLayerType === 'VOYAGER'
-        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      mapLayerType === 'SATELLITE'
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
     const newTileLayer = L.tileLayer(tileUrl, {
-      maxZoom: 19,
-      subdomains: 'abcd'
+      maxZoom: mapLayerType === 'SATELLITE' ? 18 : 19
     })
     newTileLayer.addTo(map)
     tileLayerRef.current = newTileLayer
@@ -598,8 +596,8 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
 
             <button
               className="map-action-btn"
-              title={`Chuyển lớp bản đồ (${mapLayerType === 'VOYAGER' ? 'Logistics Voyager' : 'OpenStreetMap'})`}
-              onClick={() => setMapLayerType(mapLayerType === 'VOYAGER' ? 'OSM' : 'VOYAGER')}
+              title={`Chuyển lớp bản đồ (${mapLayerType === 'OSM' ? 'Bản đồ đường bộ OpenStreetMap' : 'Bản đồ không ảnh Vệ tinh'})`}
+              onClick={() => setMapLayerType(mapLayerType === 'OSM' ? 'SATELLITE' : 'OSM')}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
                 layers
@@ -640,7 +638,7 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
             </div>
           )}
           <span style={{ marginLeft: 'auto', fontSize: 11, color: '#88958c' }}>
-            OpenStreetMap & CARTO Tiles
+            Bản đồ mở OpenStreetMap (Miễn phí 100%)
           </span>
         </div>
       )}
