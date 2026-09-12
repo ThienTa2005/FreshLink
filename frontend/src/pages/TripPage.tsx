@@ -217,12 +217,13 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
   }
 
   return <>
-    {!selected && <DataTable path="/trips" rowKey="trip_id" columns={[['trip_code', 'Mã chuyến'], ['trip_date', 'Ngày'], ['status', 'Trạng thái']]} actions={row => <Button type="link" onClick={() => setSelected(Number(row.trip_id))}>Mở chuyến</Button>} />}
+    {!selected && <DataTable path="/trips" rowKey="trip_id" columns={[['trip_code', 'Mã chuyến'], ['trip_date', 'Ngày'], ['status', 'Trạng thái']]} actions={row => <Button type="primary" onClick={() => setSelected(Number(row.trip_id))}>Mở chuyến →</Button>} />}
     {error && <Alert type="error" message={error} closable onClose={() => setError('')} style={{ marginBottom: 12 }} />}
     {offlineNotice && <Alert type="info" message={offlineNotice} closable onClose={() => setOfflineNotice('')} style={{ marginBottom: 12 }} />}
 
     {query.data && <Card
-      title={<Space>
+      title={<Space wrap>
+        <Button onClick={() => setSelected(undefined)} size="small">← Quay lại danh sách</Button>
         <span>Chuyến: <strong>{String(query.data.trip_code)}</strong></span>
         <Tag color={query.data.status === 'DELIVERED' ? 'green' : query.data.status === 'IN_PROGRESS' ? 'blue' : 'gold'}>{display(query.data.status)}</Tag>
       </Space>}
@@ -247,44 +248,64 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
             } catch (e) {
               setError((e as Error).message)
             }
-          }, () => setError('Không lấy được vị trí GPS. Vui lòng bật định vị trên trình duyệt.'))}>Cập nhật vị trí</Button>
+          }, () => setError('Không lấy được vị trí GPS. Vui lòng bật định vị trên trình duyệt.'))}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>my_location</span>
+            Cập nhật GPS
+          </Button>
         )}
       </Space>}
     >
       {/* DRIVER COCKPIT PRIMARY ACTION HERO BANNER */}
       {isDriver && query.data.status === 'PLANNED' && (
-        <div style={{ background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-          <Typography.Title level={4} style={{ marginTop: 0 }}>Khoang lái tài xế — Danh sách kiểm hàng nhận</Typography.Title>
-          <p>Đối chiếu toàn bộ các thùng và kiện hàng trên xe trước khi xuất phát.</p>
-          <Button type="primary" size="large" onClick={async () => {
+        <div className="driver-cockpit-banner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#a4f4c3' }}>local_shipping</span>
+            <Typography.Title level={4} style={{ margin: 0, color: '#ffffff' }}>Khoang lái tài xế — Danh sách kiểm hàng nhận</Typography.Title>
+          </div>
+          <p>Đối chiếu toàn bộ các thùng và kiện hàng rau củ sạch trên xe lạnh trước khi xuất phát khỏi Hub.</p>
+          <Button type="primary" size="large" className="driver-btn-lg" onClick={async () => {
             try {
               await api(`/trips/${selected}/start`, 'POST')
               await client.invalidateQueries()
             } catch (e) {
               setError((e as Error).message)
             }
-          }}>Đã đối chiếu và nhận hàng — Bắt đầu chuyến</Button>
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>done_all</span>
+            Đã đối chiếu & Nhận hàng — Bắt đầu chuyến xe
+          </Button>
         </div>
       )}
 
       {isDriver && query.data.status === 'IN_PROGRESS' && currentPendingStop && (
-        <div style={{ background: '#f6ffed', border: '2px solid #b7eb8f', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-          <Typography.Title level={4} style={{ marginTop: 0, color: '#389e0d' }}>
-            Điểm đến tiếp theo: #{String(currentPendingStop.stop_sequence)} — {String(currentPendingStop.address_line)}
-          </Typography.Title>
-          <p>Người nhận: <b>{String(currentPendingStop.contact_name ?? '')}</b> · SĐT: <b>{String(currentPendingStop.contact_phone ?? '')}</b></p>
+        <div className="driver-next-stop-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span className="radar-dot" style={{ width: 10, height: 10, borderRadius: '50%', background: '#176b45', display: 'inline-block' }}></span>
+            <Typography.Title level={4} style={{ margin: 0, color: '#005131' }}>
+              Điểm đến tiếp theo: Điểm #{String(currentPendingStop.stop_sequence)} — {String(currentPendingStop.address_line)}
+            </Typography.Title>
+          </div>
+          <p style={{ margin: '4px 0 16px', color: 'var(--text-secondary)' }}>
+            Người nhận: <b>{String(currentPendingStop.contact_name ?? '')}</b> · SĐT: <b>{String(currentPendingStop.contact_phone ?? '')}</b> · {String(currentPendingStop.district)}, {String(currentPendingStop.city)}
+          </p>
           <Space wrap size="middle">
             {currentPendingStop.actual_arrival_at == null ? (
-              <Button type="primary" size="large" onClick={() => void handleArrive(Number(currentPendingStop.trip_stop_id))}>
+              <Button type="primary" size="large" className="driver-btn-lg" onClick={() => void handleArrive(Number(currentPendingStop.trip_stop_id))}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>where_to_vote</span>
                 1. Đã đến điểm giao này
               </Button>
             ) : (
-              <Tag color="green" style={{ fontSize: 14, padding: '4px 8px' }}>Đã ghi nhận đến nơi lúc {display(currentPendingStop.actual_arrival_at, 'arrival')}</Tag>
+              <Tag color="green" style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>check_circle</span>
+                Đã ghi nhận đến nơi lúc {display(currentPendingStop.actual_arrival_at, 'arrival')}
+              </Tag>
             )}
             <Button href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${currentPendingStop.address_line}, ${currentPendingStop.district}, ${currentPendingStop.city}`)}`} target="_blank">
-              Mở chỉ đường Google Maps
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>navigation</span>
+              Chỉ đường Google Maps
             </Button>
             <Button href={`tel:${currentPendingStop.contact_phone}`}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>call</span>
               Gọi người nhận
             </Button>
           </Space>

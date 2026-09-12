@@ -16,49 +16,383 @@ import TripPage from './TripPage'
 import { AnalyticsPage, InvoicesPage, MembersPage, NotificationsPage } from './ManagementPages'
 import { DashboardPage, DetailPage, AccountPage, AdminPage } from './WorkspacePages'
 
-export default function PortalPage(){
- const {user,membership,selectWorkspace,logout}=useAuth();const location=useLocation();const navigate=useNavigate();const [mobile,setMobile]=useState(false);const [dirty,setDirty]=useState(false)
- const [pendingOffline, setPendingOffline] = useState(0)
- const unreadQuery = useQuery({ queryKey: ['notifications-unread'], queryFn: () => api<{ unread_count: number }>('/notifications/unread-count'), refetchInterval: 30000 })
- const m=membership;const has=(...r:string[])=>can(m,...r)
- useEffect(()=>{return subscribeOfflineQueue(count=>setPendingOffline(count))},[])
- useEffect(()=>{const saved=()=>setDirty(false);window.addEventListener('freshlink:saved',saved);return()=>window.removeEventListener('freshlink:saved',saved)},[])
- useEffect(()=>{const guard=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[dirty])
- if(!user)return <Navigate to="/login" replace/>
- if(!m)return <Result title="Chưa được cấp đơn vị" subTitle="Liên hệ quản trị viên để cấp quyền." extra={<Button onClick={()=>void logout()}>Đăng xuất</Button>}/>
- const internal=m.organizationType==='FRESHLINK'; const supplier=m.organizationType==='SUPPLIER'
- const nav=[
-  {key:'dashboard',label:'Việc hôm nay',allow:true},
-  {key:'orders',label:'Đơn hàng',allow:has('RESTAURANT_MANAGER','RESTAURANT_PURCHASER','RESTAURANT_RECEIVER','OPERATIONS_COORDINATOR','ACCOUNTANT','CUSTOMER_SUPPORT')},
-  {key:'supply-requests',label:supplier?'Yêu cầu cung ứng':'Phân nguồn',allow:has('SUPPLIER_MANAGER','SUPPLIER_STAFF','OPERATIONS_COORDINATOR')},
-  {key:'batches',label:'Lô hàng & kiểm nhận',allow:has('SUPPLIER_MANAGER','SUPPLIER_STAFF','QUALITY_INSPECTOR','OPERATIONS_COORDINATOR')},
-  {key:'trips',label:'Chuyến giao',allow:has('DRIVER','OPERATIONS_COORDINATOR')},
-  {key:'claims',label:'Khiếu nại',allow:has('RESTAURANT_MANAGER','RESTAURANT_RECEIVER','CUSTOMER_SUPPORT')},
-  {key:'assets',label:'Thùng luân chuyển',allow:has('RESTAURANT_MANAGER','RESTAURANT_RECEIVER','DRIVER','OPERATIONS_COORDINATOR')},
-  {key:supplier?'settlements':'invoices',label:supplier?'Đối soát':'Tài chính',allow:has('SUPPLIER_MANAGER','RESTAURANT_MANAGER','ACCOUNTANT')},
-  {key:'analytics',label:'Báo cáo',allow:internal&&has('OPERATIONS_COORDINATOR','QUALITY_INSPECTOR','CUSTOMER_SUPPORT','ACCOUNTANT')},
-  {key:'members',label:'Thành viên',allow:!internal&&has('RESTAURANT_MANAGER','SUPPLIER_MANAGER')},
-  {key:'admin',label:'Quản trị hệ thống',allow:has('SYSTEM_ADMIN')},
-  {key:'account',label:'Tài khoản của tôi',allow:true},
- ]
- const segment=location.pathname.replace(/^\/portal\/?/,'')||'dashboard';const [rawRoot,id]=segment.split('/');const root=rawRoot==='quality'?'batches':rawRoot
- const permitted=root==='notifications'||nav.some(n=>n.key===root&&n.allow)
- let content:ReactNode
- if(!permitted)content=<Result status="403" title="Màn hình không thuộc quyền hiện tại" extra={<Link to="/portal/dashboard">Về việc hôm nay</Link>}/>
- else if(root==='dashboard')content=<DashboardPage/>
- else if(root==='notifications')content=<NotificationsPage/>
- else if(root==='account')content=<AccountPage/>
- else if(root==='admin')content=<AdminPage/>
- else if(root==='members')content=<MembersPage organizationId={m.organizationId}/>
- else if(root==='analytics')content=<AnalyticsPage/>
- else if(id&&/^\d+$/.test(id)&&['orders','batches','trips','claims','settlements'].includes(root))content=<DetailPage type={root} id={Number(id)}/>
- else if(root==='invoices')content=<InvoicesPage restaurantId={internal?undefined:m.organizationId} accountant={has('ACCOUNTANT')}/>
- else if(supplier)content=<SupplierPage organizationId={m.organizationId} initialTab={root==='batches'?'batches':root==='settlements'?'billing':'requests'}/>
- else if(!internal)content=<RestaurantPage organizationId={m.organizationId} initialTab={root==='orders'?(id==='new'?'order':'orders'):root}/>
- else if(root==='trips')content=<TripPage canOptimize={has('OPERATIONS_COORDINATOR')}/>
- else if(root==='assets'&&has('DRIVER')&&!has('OPERATIONS_COORDINATOR'))content=<Card title="Thùng luân chuyển"><p>Thao tác giao hoặc thu thùng được thực hiện theo từng điểm giao trong màn hình Chuyến giao.</p><DataTable path="/assets" rowKey="asset_id" columns={[['asset_id','ID'],['asset_code','Mã thùng'],['status','Trạng thái'],['condition_status','Tình trạng']]}/></Card>
- else content=<OperationsPage initialTab={({orders:'overview','supply-requests':'source',batches:'gate',claims:'claims',assets:'assets'} as Record<string,string>)[root]}/>
- function go(path:string){if(dirty&&!window.confirm('Bạn có nội dung chưa lưu. Rời màn hình?'))return;setDirty(false);navigate(path);setMobile(false)}
- const sidebar=<aside className="portal-sidebar"><div className="portal-logo"><Logo/></div><div className="org-switch"><label>Không gian làm việc</label><Select value={m.organizationId} options={user.memberships.map(x=>({value:x.organizationId,label:x.organizationName}))} onChange={value=>{if(dirty&&!window.confirm('Đổi đơn vị sẽ bỏ các thay đổi chưa lưu. Tiếp tục?'))return;selectWorkspace(value);setDirty(false);navigate('/portal/dashboard')}}/></div><nav aria-label="Điều hướng nghiệp vụ">{nav.filter(n=>n.allow).map(n=><a href={'/portal/'+n.key} key={n.key} className={root===n.key?'active':''} onClick={e=>{e.preventDefault();go('/portal/'+n.key)}}>{n.label}</a>)}</nav></aside>
- return <Layout className="portal-layout">{sidebar}<Drawer placement="left" open={mobile} onClose={()=>setMobile(false)}>{sidebar}</Drawer><div className="portal-main"><header className="portal-header"><Button className="menu-trigger" onClick={()=>setMobile(true)}>☰</Button><GlobalSearch/><Space wrap>{pendingOffline>0&&<Button size="small" type="primary" danger onClick={()=>void flushOfflineQueue()}>Đồng bộ {pendingOffline} ngoại tuyến</Button>}<Badge count={unreadQuery.data?.unread_count??0} size="small"><Link to="/portal/notifications">Thông báo</Link></Badge><span>{user.fullName}<small style={{display:'block'}}>{m.roles.map(r=>roleNames[r]??r).join(', ')}</small></span><Button onClick={()=>void logout()}>Đăng xuất</Button></Space></header><main className="portal-content" onChangeCapture={()=>setDirty(true)}>{pendingOffline>0&&<Alert type="warning" showIcon style={{marginBottom:16}} message={<Space><span>Đang có {pendingOffline} thao tác tài xế lưu ngoại tuyến. Kết nối mạng để tự đồng bộ.</span><Button size="small" type="primary" onClick={()=>void flushOfflineQueue()}>Đồng bộ ngay</Button></Space>}/>}<h2>{nav.find(n=>n.key===root)?.label??'Chi tiết nghiệp vụ'}</h2>{has('SYSTEM_ADMIN')&&<Alert type="info" showIcon message="Đang thao tác bằng tài khoản quản trị. Thay đổi nghiệp vụ ghi nhận người thực hiện là bạn."/>}<section key={m.organizationId+':'+segment}>{content}</section></main></div></Layout>
+export default function PortalPage() {
+  const { user, membership, selectWorkspace, logout } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [mobile, setMobile] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [pendingOffline, setPendingOffline] = useState(0)
+
+  const unreadQuery = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: () => api<{ unread_count: number }>('/notifications/unread-count'),
+    refetchInterval: 30000
+  })
+
+  const m = membership
+  const has = (...r: string[]) => can(m, ...r)
+
+  useEffect(() => {
+    return subscribeOfflineQueue(count => setPendingOffline(count))
+  }, [])
+
+  useEffect(() => {
+    const saved = () => setDirty(false)
+    window.addEventListener('freshlink:saved', saved)
+    return () => window.removeEventListener('freshlink:saved', saved)
+  }, [])
+
+  useEffect(() => {
+    const guard = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [dirty])
+
+  if (!user) return <Navigate to="/login" replace />
+  if (!m) {
+    return (
+      <Result
+        title="Chưa được cấp đơn vị"
+        subTitle="Tài khoản chưa có membership hợp lệ. Vui lòng liên hệ quản trị viên."
+        extra={<Button onClick={() => void logout()}>Đăng xuất</Button>}
+      />
+    )
+  }
+
+  const internal = m.organizationType === 'FRESHLINK'
+  const supplier = m.organizationType === 'SUPPLIER'
+
+  // Navigation items grouped according to Stitch Enterprise Information Architecture
+  const navGroups = [
+    {
+      group: 'Điều hành',
+      items: [
+        { key: 'dashboard', label: 'Việc hôm nay', icon: 'dashboard', allow: true },
+        {
+          key: 'orders',
+          label: 'Đơn hàng B2B',
+          icon: 'inventory_2',
+          allow: has('RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER', 'RESTAURANT_RECEIVER', 'OPERATIONS_COORDINATOR', 'ACCOUNTANT', 'CUSTOMER_SUPPORT')
+        },
+        {
+          key: 'supply-requests',
+          label: supplier ? 'Yêu cầu cung ứng' : 'Phân nguồn',
+          icon: 'local_florist',
+          allow: has('SUPPLIER_MANAGER', 'SUPPLIER_STAFF', 'OPERATIONS_COORDINATOR')
+        }
+      ]
+    },
+    {
+      group: 'Chất lượng & Vận hành',
+      items: [
+        {
+          key: 'batches',
+          label: 'Lô & Kiểm nhận KCS',
+          icon: 'verified',
+          allow: has('SUPPLIER_MANAGER', 'SUPPLIER_STAFF', 'QUALITY_INSPECTOR', 'OPERATIONS_COORDINATOR')
+        },
+        {
+          key: 'trips',
+          label: 'Chuyến giao & Lộ trình',
+          icon: 'local_shipping',
+          allow: has('DRIVER', 'OPERATIONS_COORDINATOR')
+        },
+        {
+          key: 'claims',
+          label: 'Khiếu nại & Bù trừ',
+          icon: 'assignment_late',
+          allow: has('RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER', 'CUSTOMER_SUPPORT')
+        },
+        {
+          key: 'assets',
+          label: 'Thùng SmartCrate',
+          icon: 'all_inbox',
+          allow: has('RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER', 'DRIVER', 'OPERATIONS_COORDINATOR')
+        }
+      ]
+    },
+    {
+      group: 'Tài chính & Hệ thống',
+      items: [
+        {
+          key: supplier ? 'settlements' : 'invoices',
+          label: supplier ? 'Đối soát NCC' : 'Tài chính & Hóa đơn',
+          icon: 'receipt_long',
+          allow: has('SUPPLIER_MANAGER', 'RESTAURANT_MANAGER', 'ACCOUNTANT')
+        },
+        {
+          key: 'analytics',
+          label: 'Phân tích & Báo cáo',
+          icon: 'query_stats',
+          allow: internal && has('OPERATIONS_COORDINATOR', 'QUALITY_INSPECTOR', 'CUSTOMER_SUPPORT', 'ACCOUNTANT')
+        },
+        {
+          key: 'members',
+          label: 'Thành viên & Quyền',
+          icon: 'group',
+          allow: !internal && has('RESTAURANT_MANAGER', 'SUPPLIER_MANAGER')
+        },
+        {
+          key: 'admin',
+          label: 'Quản trị hệ thống',
+          icon: 'admin_panel_settings',
+          allow: has('SYSTEM_ADMIN')
+        },
+        {
+          key: 'account',
+          label: 'Tài khoản của tôi',
+          icon: 'manage_accounts',
+          allow: true
+        }
+      ]
+    }
+  ]
+
+  const segment = location.pathname.replace(/^\/portal\/?/, '') || 'dashboard'
+  const [rawRoot, id] = segment.split('/')
+  const root = rawRoot === 'quality' ? 'batches' : rawRoot
+
+  const allNavItems = navGroups.flatMap(g => g.items)
+  const permitted = root === 'notifications' || allNavItems.some(n => n.key === root && n.allow)
+
+  let content: ReactNode
+  if (!permitted) {
+    content = <Result status="403" title="Màn hình không thuộc quyền hiện tại" extra={<Link to="/portal/dashboard">Về việc hôm nay</Link>} />
+  } else if (root === 'dashboard') {
+    content = <DashboardPage />
+  } else if (root === 'notifications') {
+    content = <NotificationsPage />
+  } else if (root === 'account') {
+    content = <AccountPage />
+  } else if (root === 'admin') {
+    content = <AdminPage />
+  } else if (root === 'members') {
+    content = <MembersPage organizationId={m.organizationId} />
+  } else if (root === 'analytics') {
+    content = <AnalyticsPage />
+  } else if (id && /^\d+$/.test(id) && ['orders', 'batches', 'trips', 'claims', 'settlements'].includes(root)) {
+    content = <DetailPage type={root} id={Number(id)} />
+  } else if (root === 'invoices') {
+    content = <InvoicesPage restaurantId={internal ? undefined : m.organizationId} accountant={has('ACCOUNTANT')} />
+  } else if (supplier) {
+    content = <SupplierPage organizationId={m.organizationId} initialTab={root === 'batches' ? 'batches' : root === 'settlements' ? 'billing' : 'requests'} />
+  } else if (!internal) {
+    content = <RestaurantPage organizationId={m.organizationId} initialTab={root === 'orders' ? (id === 'new' ? 'order' : 'orders') : root} />
+  } else if (root === 'trips') {
+    content = <TripPage canOptimize={has('OPERATIONS_COORDINATOR')} />
+  } else if (root === 'assets' && has('DRIVER') && !has('OPERATIONS_COORDINATOR')) {
+    content = (
+      <Card title="Thùng luân chuyển SmartCrate">
+        <p>Thao tác giao hoặc thu thùng được thực hiện theo từng điểm giao trong màn hình Chuyến giao.</p>
+        <DataTable path="/assets" rowKey="asset_id" columns={[['asset_id', 'ID'], ['asset_code', 'Mã thùng'], ['status', 'Trạng thái'], ['condition_status', 'Tình trạng']]} />
+      </Card>
+    )
+  } else {
+    content = <OperationsPage initialTab={({ orders: 'overview', 'supply-requests': 'source', batches: 'gate', claims: 'claims', assets: 'assets' } as Record<string, string>)[root]} />
+  }
+
+  function go(path: string) {
+    if (dirty && !window.confirm('Bạn có nội dung chưa lưu. Rời màn hình?')) return
+    setDirty(false)
+    navigate(path)
+    setMobile(false)
+  }
+
+  // Abbreviation initials for organization (e.g. "VinCommerce" -> "VC", "FreshLink" -> "FL")
+  const orgInitials = m.organizationName
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('') || 'FL'
+
+  const sidebar = (
+    <aside className="portal-sidebar">
+      <div className="portal-logo">
+        <Logo />
+      </div>
+
+      {/* Organization Switcher Card */}
+      <div className="org-switch">
+        <div className="org-switch-header">
+          <span>Không gian làm việc</span>
+          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#d7f5e7', color: '#176b45', fontWeight: 700 }}>
+            {m.organizationType}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: '#176b45', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+            {orgInitials}
+          </div>
+          <Select
+            value={m.organizationId}
+            options={user.memberships.map(x => ({ value: x.organizationId, label: x.organizationName }))}
+            onChange={value => {
+              if (dirty && !window.confirm('Đổi đơn vị sẽ bỏ các thay đổi chưa lưu. Tiếp tục?')) return
+              selectWorkspace(value)
+              setDirty(false)
+              navigate('/portal/dashboard')
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Navigation Groups */}
+      <nav aria-label="Điều hướng nghiệp vụ">
+        {navGroups.map(group => {
+          const allowedItems = group.items.filter(it => it.allow)
+          if (allowedItems.length === 0) return null
+          return (
+            <div key={group.group}>
+              <div className="nav-group-title">{group.group}</div>
+              {allowedItems.map(item => (
+                <a
+                  href={'/portal/' + item.key}
+                  key={item.key}
+                  className={root === item.key ? 'active' : ''}
+                  onClick={e => {
+                    e.preventDefault()
+                    go('/portal/' + item.key)
+                  }}
+                >
+                  <span className="material-symbols-outlined">{item.icon}</span>
+                  <span>{item.label}</span>
+                </a>
+              ))}
+            </div>
+          )
+        })}
+      </nav>
+
+      {/* Real-time Cold Chain Telemetry Pill in Sidebar */}
+      <div className="cold-chain-widget">
+        <div className="radar-dot" />
+        <div>
+          <b>Kho lạnh Hub HN-02</b>
+          <small>+3.4°C • Đạt chuẩn</small>
+        </div>
+      </div>
+    </aside>
+  )
+
+  const currentLabel = allNavItems.find(n => n.key === root)?.label ?? 'Chi tiết nghiệp vụ'
+
+  return (
+    <Layout className="portal-layout">
+      {sidebar}
+      <Drawer placement="left" open={mobile} onClose={() => setMobile(false)} bodyStyle={{ padding: 0 }}>
+        {sidebar}
+      </Drawer>
+
+      <div className="portal-main">
+        {/* Top Header */}
+        <header className="portal-header">
+          <Button
+            className="menu-trigger"
+            type="text"
+            icon={<span className="material-symbols-outlined">menu</span>}
+            onClick={() => setMobile(true)}
+          />
+
+          <GlobalSearch />
+
+          <div className="portal-header-actions">
+            {pendingOffline > 0 && (
+              <Button
+                size="small"
+                type="primary"
+                danger
+                onClick={() => void flushOfflineQueue()}
+                style={{ animation: 'pulse-warm 1.8s infinite', fontWeight: 700 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>sync</span>
+                Đồng bộ {pendingOffline} ngoại tuyến
+              </Button>
+            )}
+
+            <Badge count={unreadQuery.data?.unread_count ?? 0} size="small" offset={[-2, 2]}>
+              <Link to="/portal/notifications" className="notification-badge-btn" aria-label="Thông báo">
+                <span className="material-symbols-outlined">notifications</span>
+              </Link>
+            </Badge>
+
+            {/* User Profile Capsule */}
+            <div className="user-profile-capsule">
+              <div className="user-avatar">
+                {user.fullName[0]?.toUpperCase() ?? 'U'}
+              </div>
+              <div className="user-info">
+                <span className="user-name">{user.fullName}</span>
+                <span className="user-role">{m.roles.map(r => roleNames[r] ?? r).join(', ')}</span>
+              </div>
+            </div>
+
+            <Button
+              type="text"
+              icon={<span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>}
+              onClick={() => void logout()}
+              title="Đăng xuất"
+            >
+              <span className="hidden sm:inline">Thoát</span>
+            </Button>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="portal-content" onChangeCapture={() => setDirty(true)}>
+          {/* Breadcrumb & Route Indicator */}
+          <div className="breadcrumbs">
+            <Link to="/portal/dashboard">FreshLink Portal</Link>
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>chevron_right</span>
+            <span style={{ color: '#176b45', fontWeight: 700 }}>{currentLabel}</span>
+            <span className="route-badge">route: /portal/{segment}</span>
+          </div>
+
+          {pendingOffline > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16, borderRadius: 10 }}
+              message={
+                <Space wrap>
+                  <span>Đang có {pendingOffline} thao tác tài xế lưu ngoại tuyến trong bộ nhớ đệm.</span>
+                  <Button size="small" type="primary" onClick={() => void flushOfflineQueue()}>
+                    Đồng bộ ngay
+                  </Button>
+                </Space>
+              }
+            />
+          )}
+
+          <div className="page-heading">
+            <div>
+              <h2>{currentLabel}</h2>
+              <p style={{ margin: '4px 0 0', color: '#4e655c', fontSize: 13 }}>
+                Đơn vị: <b>{m.organizationName}</b> ({m.organizationType})
+              </p>
+            </div>
+          </div>
+
+          {has('SYSTEM_ADMIN') && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 18, borderRadius: 10 }}
+              message="Đang thao tác bằng tài khoản Quản trị hệ thống (System Administrator). Mọi thao tác ghi sẽ được lưu lại trong audit log."
+            />
+          )}
+
+          <section key={m.organizationId + ':' + segment} style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            {content}
+          </section>
+        </main>
+      </div>
+    </Layout>
+  )
 }
+

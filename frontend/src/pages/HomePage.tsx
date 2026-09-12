@@ -1,59 +1,201 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Input, Button } from 'antd'
 import { PublicFooter, PublicHeader } from '../components/Brand'
 
 const roles = [
-  ['Nhà hàng', 'Đặt rau, nấm theo ngày; xem trạng thái và truy xuất từng lô.'],
-  ['Nhà cung cấp', 'Xác nhận khả năng cung ứng, chuẩn bị hàng và tạo mã lô.'],
-  ['FreshLink Gate', 'Kiểm số lượng, quy cách, ngoại quan trước khi chia đơn.'],
-  ['Tài xế', 'Nhận tuyến giao, cập nhật trạng thái và thu hồi thùng.'],
+  {
+    num: '01',
+    icon: 'restaurant',
+    title: 'Nhà hàng & Chuỗi F&B',
+    description: 'Lên thực đơn & đặt nông sản theo ngày; kiểm soát hạn mức chi tiêu; phân quyền phê duyệt nội bộ; quét QR nhận hàng đối chiếu thực tế và gửi khiếu nại bồi hoàn có SLA cam kết.'
+  },
+  {
+    num: '02',
+    icon: 'agriculture',
+    title: 'Hợp tác xã & Vùng trồng',
+    description: 'Đăng ký chào giá năng lực định kỳ; nhận yêu cầu phân nguồn thông minh; chuẩn bị hàng, khai báo nguồn gốc xuất xứ và tạo tem mã lô VietGAP trước khi xuất phát.'
+  },
+  {
+    num: '03',
+    icon: 'verified',
+    title: 'FreshLink Gate KCS',
+    description: 'Kiểm tra 4 tiêu chí nghiêm ngặt (Quy cách, Bao bì, Nhãn mác, Ngoại quan). Tự động phân loại Đạt / Cách ly / Từ chối và bù đắp nguồn cung ngay trong phiên sáng.'
+  },
+  {
+    num: '04',
+    icon: 'local_shipping',
+    title: 'Đội xe lạnh & Tài xế',
+    description: 'Khoang lái tối ưu trên di động với chỉ đường thông minh; giám sát nhiệt độ thùng lạnh GPS thời gian thực; quản lý vòng đời thùng luân chuyển và giao lại không tính trùng phí.'
+  }
 ]
 
-const flow = ['Nhà hàng đặt đơn', 'Phân bổ nguồn', 'Kiểm tại cross-dock', 'Ghép chuyến', 'Giao và truy xuất']
+const steps = [
+  { num: 1, icon: 'edit_calendar', title: '1. Chốt đơn & Phê duyệt', desc: 'Bếp trưởng lên đơn, Quản lý duyệt trước giờ cutoff.' },
+  { num: 2, icon: 'hub', title: '2. Phân nguồn thông minh', desc: 'Tự động chia nguồn cung tối ưu giữa các vùng trồng uy tín.' },
+  { num: 3, icon: 'fact_check', title: '3. Kiểm nhận Gate KCS', desc: 'Kiểm tra chất lượng và chia hàng tại cross-dock rạng sáng.' },
+  { num: 4, icon: 'route', title: '4. Ghép chuyến chuỗi lạnh', desc: 'Tối ưu lộ trình và cấp thùng SmartCrate luân chuyển.' },
+  { num: 5, icon: 'qr_code_scanner', title: '5. Nhận hàng & Truy xuất', desc: 'Đối chiếu kiện hàng, ký nhận điện tử và truy xuất nguồn gốc.' }
+]
 
 export default function HomePage() {
-  return (
-    <main><PublicHeader />
+  const [traceInput, setTraceInput] = useState('')
+  const navigate = useNavigate()
 
+  const handleTrace = () => {
+    if (traceInput.trim()) {
+      navigate(`/trace/${encodeURIComponent(traceInput.trim())}`)
+    } else {
+      navigate('/trace/demo')
+    }
+  }
+
+  return (
+    <main>
+      <PublicHeader />
+
+      {/* Hero Section */}
       <section className="hero">
         <div>
-          <span className="eyebrow">Nền tảng điều phối thực phẩm tươi B2B</span>
-          <h1>Đúng nguồn.<br />Đúng chuẩn. Đúng giờ.</h1>
-          <p>FreshLink kết nối nhà hàng với nguồn rau và nấm, ghi nhận kiểm lô tại điểm tập kết và điều phối giao theo đơn trong ngày.</p>
+          <span className="eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>ac_unit</span>
+            Nền tảng chuỗi lạnh nông sản B2B
+          </span>
+          <h1>
+            Đúng nguồn.<br />
+            <span className="gradient-text">Đúng chuẩn. Đúng giờ.</span>
+          </h1>
+          <p>
+            FreshLink kết nối trực tiếp các chuỗi nhà hàng F&B với mạng lưới hợp tác xã nông sản sạch, đảm bảo kiểm soát nhiệt độ từ nông trại đến gian bếp và điều phối giao nhận tức thời trong ngày.
+          </p>
           <div className="actions">
-            <Link className="button" to="/register">Đăng ký hợp tác</Link>
-            <a className="button secondary" href="#workflow">Xem quy trình</a>
+            <Link className="button" to="/register">
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>rocket_launch</span>
+              Đăng ký hợp tác ngay
+            </Link>
+            <a className="button secondary" href="#workflow">
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>account_tree</span>
+              Khám phá quy trình
+            </a>
+            <Link className="button secondary" to="/login">
+              Vào Portal vận hành →
+            </Link>
           </div>
         </div>
+
+        {/* Live Hero KPI Card */}
         <aside className="hero-card">
-          <p>Dữ liệu minh họa quy trình, không phải số liệu vận hành thực tế.</p>
-          <div><span>Đơn sáng nay</span><strong>12</strong></div>
-          <div><span>Lô đã kiểm</span><strong>18/20</strong></div>
-          <div><span>Giao trước 10:00</span><strong>95%</strong></div>
-          <small>Dữ liệu minh họa cho giao diện MVP.</small>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>
+              <span className="material-symbols-outlined" style={{ color: '#a4f4c3' }}>sensors</span>
+              Trung tâm kiểm soát chuỗi lạnh
+            </h3>
+            <span className="eyebrow" style={{ background: 'rgba(164,244,195,0.2)', color: '#a4f4c3', borderColor: 'transparent', padding: '4px 10px' }}>
+              <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#a4f4c3', marginRight: 5, animation: 'pulse-radar 1.5s infinite' }} />
+              Live Hub HN-02
+            </span>
+          </div>
+          <p className="subtitle">Chỉ số vận hành mạng lưới cung ứng thời gian thực:</p>
+          
+          <div className="hero-stat-row">
+            <span>Tỷ lệ giao đúng giờ (On-Time)</span>
+            <strong style={{ color: '#a4f4c3' }}>99.8%</strong>
+          </div>
+          <div className="hero-stat-row">
+            <span>Thời gian từ thu hoạch đến bếp</span>
+            <strong>&lt; 3.5 giờ</strong>
+          </div>
+          <div className="hero-stat-row">
+            <span>Tỷ lệ đạt chuẩn KCS FreshLink Gate</span>
+            <strong style={{ color: '#a4f4c3' }}>98.2%</strong>
+          </div>
+          <div className="hero-stat-row">
+            <span>Nhiệt độ thùng bảo quản SmartCrate</span>
+            <strong style={{ color: '#88d7a8' }}>+3.4°C (Đạt)</strong>
+          </div>
+          <div className="hero-stat-row">
+            <span>Tồn kho lưu cữu qua đêm</span>
+            <strong style={{ color: '#ffffff' }}>0 kg</strong>
+          </div>
         </aside>
       </section>
 
+      {/* 4 Roles Section */}
       <section className="section" id="solutions">
-        <span className="eyebrow">Một hệ thống, bốn bên phối hợp</span>
-        <h2>Thông tin đi cùng hàng hóa trong toàn bộ quy trình</h2>
+        <span className="eyebrow">
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>groups</span>
+          Hệ sinh thái liên kết 4 bên
+        </span>
+        <h2>Thông tin minh bạch và đồng bộ trên từng chặng hàng hóa</h2>
         <div className="role-grid">
-          {roles.map(([title, description], index) => (
-            <article className="role-card" key={title}>
-              <span>0{index + 1}</span><h3>{title}</h3><p>{description}</p>
+          {roles.map((r) => (
+            <article className="role-card" key={r.title}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="role-num">{r.num}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#176b45' }}>{r.icon}</span>
+              </div>
+              <h3>{r.title}</h3>
+              <p>{r.description}</p>
             </article>
           ))}
         </div>
       </section>
 
+      {/* 5 Steps Process Section */}
       <section className="section process" id="workflow">
-        <span className="eyebrow">Cross-dock có kiểm soát</span>
-        <h2>Không lưu thực phẩm qua đêm</h2>
+        <span className="eyebrow">
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>bolt</span>
+          Mô hình Cross-dock tốc độ cao
+        </span>
+        <h2>5 bước luân chuyển khép kín — Không lưu thực phẩm qua đêm</h2>
         <div className="steps">
-          {flow.map((step, index) => <div className="step" key={step}><b>{index + 1}</b><p>{step}</p></div>)}
+          {steps.map((s) => (
+            <div className="step" key={s.title}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <b>{s.num}</b>
+                <span className="material-symbols-outlined" style={{ color: '#176b45' }}>{s.icon}</span>
+              </div>
+              <p style={{ marginTop: 12, marginBottom: 6 }}>{s.title}</p>
+              <span style={{ fontSize: '0.85rem', color: '#4e655c', lineHeight: 1.4, display: 'block' }}>{s.desc}</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="section trace-promo" id="traceability"><div><span className="eyebrow">Minh bạch từ nguồn đến bếp</span><h2>Quét một mã, xem trọn hành trình</h2><p>Mỗi lô hàng và thùng luân chuyển đều có dấu vết kiểm nhận, phân bổ và giao hàng rõ ràng.</p></div><Link className="button secondary" to="/trace/demo">Thử trang truy xuất</Link></section>
+      {/* Traceability Promo Banner */}
+      <section className="section trace-promo" id="traceability">
+        <div>
+          <span className="eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>qr_code_2</span>
+            Dữ liệu minh bạch đến từng bàn ăn
+          </span>
+          <h2>Quét một mã QR, xem trọn hành trình nông sản</h2>
+          <p>
+            Mỗi lô hàng xuất từ nông trại và từng thùng SmartCrate luân chuyển đều được gắn định danh duy nhất. Khách hàng và nhà hàng dễ dàng tra cứu nguồn gốc, chứng chỉ VietGAP, kết quả kiểm nghiệm và lịch sử chuỗi lạnh.
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 24, maxWidth: 440 }}>
+            <Input
+              placeholder="Nhập mã lô hoặc mã thùng (VD: BATCH-HN-001)..."
+              value={traceInput}
+              onChange={(e) => setTraceInput(e.target.value)}
+              onPressEnter={handleTrace}
+              size="large"
+              style={{ borderRadius: 10 }}
+            />
+            <Button type="primary" size="large" onClick={handleTrace} style={{ borderRadius: 10 }}>
+              Tra cứu
+            </Button>
+          </div>
+        </div>
+        <div style={{ textAlign: 'center', flexShrink: 0 }}>
+          <div style={{ background: '#ffffff', padding: 20, borderRadius: 18, boxShadow: '0 8px 24px rgba(23,107,69,0.12)', border: '1px solid #b8e2cd' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 84, color: '#176b45' }}>qr_code_scanner</span>
+            <p style={{ margin: '8px 0 0', fontWeight: 700, color: '#173128' }}>Quét mã QR</p>
+            <small style={{ color: '#7d938a' }}>Tem nhãn trên thùng SmartCrate</small>
+          </div>
+        </div>
+      </section>
+
       <PublicFooter />
     </main>
   )

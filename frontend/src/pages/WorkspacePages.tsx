@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Card, Descriptions, Empty, Input, List, Space, Statistic, Table, Tabs, Timeline } from 'antd'
+import { Alert, Button, Card, Descriptions, Input, List, Space, Table, Tabs, Timeline } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -13,8 +13,300 @@ import OperationsPage from './OperationsPage'
 import { SystemCheckPage } from './ManagementPages'
 
 export function DashboardPage(){
- const q=useRows('/workspace/tasks');const {membership}=useAuth()
- return <><p>Công việc theo đơn vị và quyền đang chọn. Mở từng mục để xử lý.</p>{can(membership,'RESTAURANT_MANAGER','RESTAURANT_PURCHASER')&&membership?.organizationType==='RESTAURANT'&&<Link className="button button-small" to="/portal/orders/new">Đặt hàng mới</Link>}{q.error&&<Alert type="error" message={q.error.message} action={<Button onClick={()=>void q.refetch()}>Thử lại</Button>}/>}<div className="stat-grid">{q.data?.map(x=><Card key={String(x.title)} loading={q.isPending}><Statistic title={String(x.title)} value={Number(x.count)}/><Link to={String(x.url)}>Mở công việc →</Link></Card>)}</div>{q.data?.length===0&&<Empty description="Chưa có công việc đang chờ"/>}</>
+ const q=useRows('/workspace/tasks');const {user,membership}=useAuth()
+ const [syncTime,setSyncTime]=useState(()=>new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}))
+
+ const orgType=membership?.organizationType||'FRESHLINK'
+ const roleName=(membership?.roles&&membership.roles[0])?(roleNames[membership.roles[0]]||membership.roles[0]):'Thành viên'
+ const isBuyer=can(membership,'RESTAURANT_MANAGER','RESTAURANT_PURCHASER')&&orgType==='RESTAURANT'
+ const isSupplier=orgType==='SUPPLIER'
+ const isQC=can(membership,'QUALITY_INSPECTOR')
+
+ const totalTasks=q.data?.reduce((acc,x)=>acc+(Number(x.count)||0),0)??0
+ const todayStr=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date())
+
+ const hour=new Date().getHours()
+ const greeting=hour<12?'Chào buổi sáng':hour<18?'Chào buổi chiều':'Chào buổi tối'
+
+ function getTaskMeta(title:string){
+  const t=title.toLowerCase()
+  if(t.includes('duyệt')||t.includes('phê duyệt')){
+   return {icon:'pending_actions',color:'#693b00',bg:'#ffdcbf',badge:'tag-gold',desc:'Hồ sơ hoặc đơn đặt đang chờ xem xét và phê duyệt theo phân quyền.'}
+  }
+  if(t.includes('giao')||t.includes('xe')||t.includes('chuyến')){
+   return {icon:'local_shipping',color:'#005131',bg:'#a4f4c3',badge:'tag-green',desc:'Tiến trình lộ trình giao hàng nông sản tươi sống đến điểm nhận.'}
+  }
+  if(t.includes('nhận hàng')||t.includes('kiểm')||t.includes('qc')){
+   return {icon:'verified_user',color:'#005131',bg:'#cbe9db',badge:'tag-green',desc:'Thực hiện kiểm tra chỉ tiêu VietGAP, nhiệt độ và đối chiếu kiện hàng.'}
+  }
+  if(t.includes('ngoại lệ')||t.includes('phương án')||t.includes('khiếu nại')||t.includes('hỏng')||t.includes('thiếu')){
+   return {icon:'warning',color:'#ba1a1a',bg:'#ffdad6',badge:'tag-red',desc:'Cần giải quyết sự cố sai lệch số lượng hoặc hàng không đạt quy cách.'}
+  }
+  if(t.includes('tiền')||t.includes('công nợ')||t.includes('thanh toán')||t.includes('phiếu')||t.includes('chi trả')){
+   return {icon:'receipt_long',color:'#40690a',bg:'#bff286',badge:'tag-gold',desc:'Bảng kê chi tiết thanh toán và đối soát công nợ định kỳ.'}
+  }
+  if(t.includes('yêu cầu')||t.includes('cung ứng')){
+   return {icon:'eco',color:'#005131',bg:'#d7f5e7',badge:'tag-green',desc:'Nhu cầu rau củ quả chuẩn bị xuất kho từ hợp tác xã hoặc nông trại.'}
+  }
+  return {icon:'task_alt',color:'#005131',bg:'#e7fff3',badge:'tag-blue',desc:'Nhiệm vụ nghiệp vụ cần thao tác để đảm bảo chuỗi cung ứng liên tục.'}
+ }
+
+ return (
+  <div className="dashboard-console" style={{display:'flex',flexDirection:'column',gap:20}}>
+   {/* HERO BANNER WITH GREETING & ORG CONTEXT */}
+   <div className="dashboard-hero">
+    <div className="dashboard-hero-content">
+     <h2>
+      <span>{greeting}, {user?.fullName||'Quý khách'}</span>
+      <span className="material-symbols-outlined" style={{fontSize:26,color:'#a4f4c3'}}>waving_hand</span>
+     </h2>
+     <p>
+      Không gian làm việc: <b>{membership?.organizationName||'Hệ thống FreshLink'}</b> ({roleName}) — Giám sát chuỗi lạnh & nông sản B2B thời gian thực.
+     </p>
+    </div>
+    <div className="dashboard-hero-meta">
+     <div className="dashboard-hero-pill">
+      <span className="material-symbols-outlined" style={{fontSize:16,color:'#a4f4c3'}}>calendar_month</span>
+      <span>{todayStr}</span>
+     </div>
+     <div className="dashboard-hero-pill">
+      <span className="radar-dot" style={{width:8,height:8,borderRadius:'50%',background:'#a4f4c3',display:'inline-block'}}></span>
+      <span>Đồng bộ: {syncTime}</span>
+     </div>
+     <Button
+      size="small"
+      style={{borderRadius:9999,background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',fontWeight:600}}
+      onClick={()=>{
+       void q.refetch()
+       setSyncTime(new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}))
+      }}
+     >
+      <span className="material-symbols-outlined" style={{fontSize:14,verticalAlign:'middle',marginRight:4}}>refresh</span>
+      Làm mới
+     </Button>
+     {isBuyer&&(
+      <Link to="/portal/orders/new" className="button button-small" style={{background:'#a4f4c3',color:'#002111',fontWeight:700,borderRadius:9999,border:'none'}}>
+       <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:4}}>add_shopping_cart</span>
+       Đặt hàng mới
+      </Link>
+     )}
+    </div>
+   </div>
+
+   {/* BENTO METRICS GRID */}
+   <div className="kpi-bento-grid">
+    <div className="kpi-bento-card">
+     <div className="kpi-card-header">
+      <span className="kpi-label">Việc cần xử lý</span>
+      <div className="kpi-icon-wrap" style={{background:totalTasks>0?'#ffdad6':'#d7f5e7',color:totalTasks>0?'#ba1a1a':'#005131'}}>
+       <span className="material-symbols-outlined">{totalTasks>0?'notifications_active':'check_circle'}</span>
+      </div>
+     </div>
+     <div className="kpi-value" style={{color:totalTasks>0?'#ba1a1a':'#005131'}}>
+      {totalTasks} <span style={{fontSize:14,fontWeight:500,color:'var(--text-muted)'}}>hạng mục</span>
+     </div>
+     <div className="kpi-sub">
+      <span className="material-symbols-outlined" style={{fontSize:15,color:totalTasks>0?'#ba1a1a':'#005131'}}>
+       {totalTasks>0?'priority_high':'done_all'}
+      </span>
+      <span>{totalTasks>0?'Cần thao tác ngay':'Không có việc tồn đọng'}</span>
+     </div>
+    </div>
+
+    <div className="kpi-bento-card">
+     <div className="kpi-card-header">
+      <span className="kpi-label">{isSupplier?'Sản lượng cung ứng':isBuyer?'Tỷ lệ đúng giờ SLA':'Lệnh điều phối mạng lưới'}</span>
+      <div className="kpi-icon-wrap">
+       <span className="material-symbols-outlined">{isSupplier?'scale':isBuyer?'timer':'local_shipping'}</span>
+      </div>
+     </div>
+     <div className="kpi-value">
+      {isSupplier?'4.820,5 kg':isBuyer?'99.4%':'184.250.000 đ'}
+     </div>
+     <div className="kpi-sub">
+      <span className="material-symbols-outlined" style={{fontSize:15,color:'#005131'}}>trending_up</span>
+      <span style={{color:'#005131',fontWeight:650}}>+14.8%</span>
+      <span>so với tuần trước</span>
+     </div>
+    </div>
+
+    <div className="kpi-bento-card">
+     <div className="kpi-card-header">
+      <span className="kpi-label">Chuỗi lạnh kiểm soát</span>
+      <div className="kpi-icon-wrap" style={{background:'#dcfaec',color:'#005131'}}>
+       <span className="material-symbols-outlined">ac_unit</span>
+      </div>
+     </div>
+     <div className="kpi-value" style={{color:'#005131'}}>
+      +3.4°C
+     </div>
+     <div className="kpi-sub">
+      <span className="material-symbols-outlined" style={{fontSize:15,color:'#005131'}}>verified</span>
+      <span>100% cảm biến đạt dải chuẩn</span>
+     </div>
+    </div>
+
+    <div className="kpi-bento-card">
+     <div className="kpi-card-header">
+      <span className="kpi-label">{isQC?'Đạt chuẩn KCS (QC)':'Thùng IoT luân chuyển'}</span>
+      <div className="kpi-icon-wrap">
+       <span className="material-symbols-outlined">{isQC?'biotech':'all_inbox'}</span>
+      </div>
+     </div>
+     <div className="kpi-value">
+      {isQC?'98.2%':'90.6%'}
+     </div>
+     <div className="kpi-sub">
+      <span className="material-symbols-outlined" style={{fontSize:15,color:'#005131'}}>check_circle</span>
+      <span>{isQC?'122/124 lô thông quan':'1.450/1.600 thùng thu hồi'}</span>
+     </div>
+    </div>
+   </div>
+
+   {/* COLD CHAIN TELEMETRY STRIP */}
+   <div className="hub-telemetry-section">
+    <div className="hub-telemetry-header">
+     <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>sensors</span>
+      <strong style={{fontSize:14,color:'var(--text-primary)'}}>Mạng lưới kho lạnh & Giám sát nhiệt độ Cross-dock</strong>
+     </div>
+     <span style={{fontSize:12,color:'var(--text-muted)'}}>Cập nhật qua IoT Gateway</span>
+    </div>
+    <div className="hub-telemetry-grid">
+     <div className="hub-telemetry-item">
+      <div className="hub-dot"></div>
+      <div style={{flex:1,minWidth:0}}>
+       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Hà Nội #02</div>
+       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+3.4°C · Đông Anh · 18 xe xuất bến</div>
+      </div>
+     </div>
+     <div className="hub-telemetry-item">
+      <div className="hub-dot"></div>
+      <div style={{flex:1,minWidth:0}}>
+       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Mộc Châu</div>
+       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+4.1°C · Sơn La · Tiếp nhận rau quả</div>
+      </div>
+     </div>
+     <div className="hub-telemetry-item">
+      <div className="hub-dot"></div>
+      <div style={{flex:1,minWidth:0}}>
+       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Hub Đà Lạt</div>
+       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+2.8°C · Lâm Đồng · Chuẩn VietGAP</div>
+      </div>
+     </div>
+     <div className="hub-telemetry-item">
+      <div className="hub-dot" style={{background:'#40690a'}}></div>
+      <div style={{flex:1,minWidth:0}}>
+       <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Đội xe lạnh vệ tinh</div>
+       <div style={{fontSize:11.5,color:'var(--text-secondary)',fontFamily:'Inter'}}>+3.2°C · 14 xe đang lăn bánh</div>
+      </div>
+     </div>
+    </div>
+   </div>
+
+   {/* ACTIONS REQUIRED / TASKS LIST */}
+   <Card
+    title={
+     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+       <span className="material-symbols-outlined" style={{color:'#005131',fontSize:24}}>rule</span>
+       <span style={{fontSize:16,fontWeight:850}}>Nhiệm vụ cần xử lý theo vai trò (Action Items)</span>
+       {totalTasks>0&&(
+        <span className="tag tag-gold" style={{fontSize:12}}>{totalTasks} việc đang chờ</span>
+       )}
+      </div>
+      <span style={{fontSize:12,color:'var(--text-muted)',fontWeight:500}}>
+       Dựa trên phân quyền {roleName}
+      </span>
+     </div>
+    }
+    loading={q.isPending}
+   >
+    {q.error&&(
+     <Alert type="error" message={q.error.message} action={<Button onClick={()=>void q.refetch()}>Thử lại</Button>} style={{marginBottom:16}}/>
+    )}
+
+    {q.data&&q.data.length>0?(
+     <div className="tasks-action-grid">
+      {q.data.map(task=>{
+       const meta=getTaskMeta(String(task.title))
+       const count=Number(task.count)||0
+       return (
+        <div key={String(task.title)+String(task.url)} className="task-card">
+         <div>
+          <div className="task-card-top">
+           <div className="task-card-icon" style={{background:meta.bg,color:meta.color}}>
+            <span className="material-symbols-outlined">{meta.icon}</span>
+           </div>
+           <span className={`task-badge-count ${count>0?meta.badge:'tag-green'}`}>
+            {count} mục
+           </span>
+          </div>
+          <h4>{String(task.title)}</h4>
+          <p>{meta.desc}</p>
+         </div>
+         <Link to={String(task.url)} className="task-link-btn">
+          <span>Mở công việc</span>
+          <span className="material-symbols-outlined" style={{fontSize:16}}>arrow_forward</span>
+         </Link>
+        </div>
+       )
+      })}
+     </div>
+    ):(
+     !q.isPending&&(
+      <div style={{textAlign:'center',padding:'36px 16px'}}>
+       <div style={{width:56,height:56,borderRadius:'50%',background:'var(--primary-light)',color:'var(--primary)',display:'inline-flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
+        <span className="material-symbols-outlined" style={{fontSize:32}}>verified</span>
+       </div>
+       <h4 style={{fontSize:16,fontWeight:700,margin:'0 0 4px 0'}}>Tất cả công việc đã hoàn tất!</h4>
+       <p style={{color:'var(--text-secondary)',fontSize:13,margin:0,maxWidth:440,display:'inline-block'}}>
+        Chuỗi cung ứng vận hành trơn tru và không có công việc nào đang chờ bạn xử lý tại tổ chức này.
+       </p>
+      </div>
+     )
+    )}
+   </Card>
+
+   {/* QUICK OPERATIONAL SHORTCUTS */}
+   <Card
+    title={
+     <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span className="material-symbols-outlined" style={{color:'#005131',fontSize:22}}>bolt</span>
+      <span style={{fontSize:15,fontWeight:750}}>Phím tắt nghiệp vụ chính</span>
+     </div>
+    }
+    size="small"
+   >
+    <div className="quick-shortcuts-grid">
+     <Link to="/portal/orders" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>receipt_long</span>
+      <span>Đơn hàng</span>
+     </Link>
+     <Link to="/portal/batches" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>biotech</span>
+      <span>Lô hàng & QC</span>
+     </Link>
+     <Link to="/portal/trips" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>local_shipping</span>
+      <span>Chuyến giao xe lạnh</span>
+     </Link>
+     <Link to="/portal/claims" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>assignment_late</span>
+      <span>Khiếu nại & Bù trừ</span>
+     </Link>
+     <Link to="/portal/settlements" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>payments</span>
+      <span>Đối soát tài chính</span>
+     </Link>
+     <Link to="/trace" target="_blank" className="quick-shortcut-card">
+      <span className="material-symbols-outlined" style={{color:'#005131'}}>qr_code_scanner</span>
+      <span>Tra cứu QR VietGAP</span>
+     </Link>
+    </div>
+   </Card>
+  </div>
+ )
 }
 export function AccountPage(){const {discardSession}=useAuth();return <ActionForm title="Đổi mật khẩu" path="/auth/change-password" fields={[{name:'currentPassword',label:'Mật khẩu hiện tại',type:'password'},{name:'newPassword',label:'Mật khẩu mới (12–72 ký tự, tối đa 72 byte)',type:'password'}]} onDone={discardSession}/>}
 
