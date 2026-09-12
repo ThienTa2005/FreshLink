@@ -43,6 +43,9 @@ app:
     url: ${CLOUDINARY_URL:}
     folder: ${CLOUDINARY_FOLDER:freshlink/evidence}
     access-seconds: ${CLOUDINARY_ACCESS_SECONDS:300}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-2.5-flash}
   bootstrap:
     enabled: ${BOOTSTRAP_ENABLED:false}
     email: ${BOOTSTRAP_EMAIL:}
