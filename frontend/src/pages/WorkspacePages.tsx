@@ -268,43 +268,95 @@ export function DashboardPage(){
     )}
    </Card>
 
-   {/* QUICK OPERATIONAL SHORTCUTS */}
-   <Card
-    title={
-     <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span className="material-symbols-outlined" style={{color:'#005131',fontSize:22}}>bolt</span>
-      <span style={{fontSize:15,fontWeight:750}}>Phím tắt nghiệp vụ chính</span>
-     </div>
-    }
-    size="small"
-   >
-    <div className="quick-shortcuts-grid">
-     <Link to="/portal/orders" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>receipt_long</span>
-      <span>Đơn hàng</span>
-     </Link>
-     <Link to="/portal/batches" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>biotech</span>
-      <span>Lô hàng & QC</span>
-     </Link>
-     <Link to="/portal/trips" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>local_shipping</span>
-      <span>Chuyến giao xe lạnh</span>
-     </Link>
-     <Link to="/portal/claims" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>assignment_late</span>
-      <span>Khiếu nại & Bù trừ</span>
-     </Link>
-     <Link to="/portal/settlements" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>payments</span>
-      <span>Đối soát tài chính</span>
-     </Link>
-     <Link to="/trace" target="_blank" className="quick-shortcut-card">
-      <span className="material-symbols-outlined" style={{color:'#005131'}}>qr_code_scanner</span>
-      <span>Tra cứu QR VietGAP</span>
-     </Link>
-    </div>
-   </Card>
+   {/* QUICK OPERATIONAL SHORTCUTS FILTERED BY ROLE */}
+   {(() => {
+    const shortcuts = [
+     {
+      to: '/portal/products',
+      label: 'Sản phẩm HTX',
+      icon: 'spa',
+      allow: isSupplier && can(membership, 'SUPPLIER_MANAGER', 'SUPPLIER_STAFF'),
+     },
+     {
+      to: '/portal/orders',
+      label: 'Đơn hàng B2B',
+      icon: 'receipt_long',
+      allow: !isSupplier && can(membership, 'RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER', 'RESTAURANT_RECEIVER', 'OPERATIONS_COORDINATOR', 'ACCOUNTANT', 'CUSTOMER_SUPPORT'),
+     },
+     {
+      to: '/portal/supply-requests',
+      label: isSupplier ? 'Yêu cầu cung ứng' : 'Phân nguồn cung',
+      icon: 'local_florist',
+      allow: can(membership, 'SUPPLIER_MANAGER', 'SUPPLIER_STAFF', 'OPERATIONS_COORDINATOR'),
+     },
+     {
+      to: '/portal/batches',
+      label: 'Lô hàng & QC',
+      icon: 'biotech',
+      allow: can(membership, 'SUPPLIER_MANAGER', 'SUPPLIER_STAFF', 'QUALITY_INSPECTOR', 'OPERATIONS_COORDINATOR'),
+     },
+     {
+      to: '/portal/trips',
+      label: 'Chuyến giao xe lạnh',
+      icon: 'local_shipping',
+      allow: can(membership, 'DRIVER', 'OPERATIONS_COORDINATOR'),
+     },
+     {
+      to: '/portal/claims',
+      label: 'Khiếu nại & Bù trừ',
+      icon: 'assignment_late',
+      allow: can(membership, 'RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER', 'CUSTOMER_SUPPORT'),
+     },
+     {
+      to: isSupplier ? '/portal/settlements' : '/portal/invoices',
+      label: isSupplier ? 'Đối soát HTX' : 'Tài chính & Hóa đơn',
+      icon: 'payments',
+      allow: isSupplier ? can(membership, 'SUPPLIER_MANAGER') : can(membership, 'RESTAURANT_MANAGER', 'ACCOUNTANT'),
+     },
+     {
+      to: '/portal/assets',
+      label: 'Thùng SmartCrate',
+      icon: 'all_inbox',
+      allow: can(membership, 'RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER', 'DRIVER', 'OPERATIONS_COORDINATOR'),
+     },
+     {
+      to: '/portal/admin',
+      label: 'Quản trị hệ thống',
+      icon: 'admin_panel_settings',
+      allow: can(membership, 'SYSTEM_ADMIN'),
+     },
+     {
+      to: '/trace',
+      target: '_blank',
+      label: 'Tra cứu QR VietGAP',
+      icon: 'qr_code_scanner',
+      allow: true,
+     },
+    ].filter(s => s.allow)
+
+    if (shortcuts.length === 0) return null
+
+    return (
+     <Card
+      title={
+       <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <span className="material-symbols-outlined" style={{color:'#005131',fontSize:22}}>bolt</span>
+        <span style={{fontSize:15,fontWeight:750}}>Phím tắt nghiệp vụ chính ({roleName})</span>
+       </div>
+      }
+      size="small"
+     >
+      <div className="quick-shortcuts-grid">
+       {shortcuts.map(s => (
+        <Link key={s.to} to={s.to} target={s.target} className="quick-shortcut-card">
+         <span className="material-symbols-outlined" style={{color:'#005131'}}>{s.icon}</span>
+         <span>{s.label}</span>
+        </Link>
+       ))}
+      </div>
+     </Card>
+    )
+   })()}
   </div>
  )
 }

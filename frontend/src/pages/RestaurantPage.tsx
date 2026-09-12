@@ -8,6 +8,7 @@ import { can, display } from '../components/permissions'
 import { useUrlTab } from '../components/useUrlTab'
 import { ActionForm, DataTable, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import { WeeklyEditor } from './WeeklyEditor'
+import { ProductImage } from '../components/ProductImage'
 
 export default function RestaurantPage({organizationId,initialTab='orders'}:{organizationId:number;initialTab?:string}){
  const {membership}=useAuth();const purchaser=can(membership,'RESTAURANT_MANAGER','RESTAURANT_PURCHASER');const manager=can(membership,'RESTAURANT_MANAGER');const receiver=can(membership,'RESTAURANT_MANAGER','RESTAURANT_RECEIVER')
@@ -31,7 +32,8 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  return <>{error&&<Alert type="error" message={error} showIcon/>}<Tabs activeKey={allowedTabs.includes(tab)?tab:'orders'} onChange={setTab} items={[
  ...(purchaser?[{key:'order',label:editId?'Sửa đơn':'Đặt hàng',children:<Card title={editId?'Chỉnh sửa đơn trước khi giữ nguồn':'Chọn hàng và ngày nhận'}><Space wrap><Input type="date" min={earliest} value={date} onChange={e=>setDate(e.target.value)}/><Input placeholder="Tìm sản phẩm" value={search} onChange={e=>setSearch(e.target.value)}/><Select allowClear placeholder="Nhóm hàng" value={category} onChange={setCategory} style={{minWidth:150}} options={Array.from(new Map((catalog.data??[]).map(x=>[x.category_id,{value:Number(x.category_id),label:String(x.category_name)}])).values())}/><Switch checked={onlyFavorites} onChange={setOnlyFavorites}/>Chỉ hàng thường mua</Space><p>Chốt lúc {windowQuery.data?.cutoff??'17:00'} ngày trước giao. Giá giữ trên đơn khi xác nhận; nguồn còn cần điều phối.</p>{catalog.error&&<Alert type="error" message={catalog.error.message}/>}
  <Table<Row> rowKey="sku_id" dataSource={catalog.data?.filter(s=>(!category||s.category_id===category)&&String(s.sku_name).toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi'))&&(!onlyFavorites||favorites.includes(Number(s.sku_id))))} loading={catalog.isPending} pagination={{pageSize:20}} scroll={{x:750}} columns={[
- {title:'Thường mua',render:(_,s)=><Button onClick={()=>setFavorites(f=>f.includes(Number(s.sku_id))?f.filter(id=>id!==Number(s.sku_id)):[...f,Number(s.sku_id)])}>{favorites.includes(Number(s.sku_id))?'★':'☆'}</Button>},
+ {title:'Thường mua',width:80,render:(_,s)=><Button onClick={()=>setFavorites(f=>f.includes(Number(s.sku_id))?f.filter(id=>id!==Number(s.sku_id)):[...f,Number(s.sku_id)])}>{favorites.includes(Number(s.sku_id))?'★':'☆'}</Button>},
+ {title:'Ảnh',width:70,render:(_,s)=><ProductImage src={s.image_url as string|null} alt={String(s.sku_name)} size={48}/>},
  {title:'Sản phẩm / quy cách',render:(_,s)=><>{String(s.sku_name)}<small style={{display:'block'}}>{String(s.pack_description)} · {String(s.base_unit)} · Tối thiểu {String(s.minimum_order_quantity)} · Bước {String(s.quantity_step)}</small></>},
  {title:'Giá',render:(_,s)=><>{s.price==null?'Chưa có giá':display(s.price,'price')}{oldPrices[String(s.sku_id)]!=null&&oldPrices[String(s.sku_id)]!==Number(s.price)&&<small style={{display:'block',color:'#ad6800'}}>Giá cũ: {display(oldPrices[String(s.sku_id)],'price')}</small>}</>},
  {title:'Số lượng',render:(_,s)=><InputNumber min={0} step={Number(s.quantity_step)} disabled={s.price==null} value={cart[String(s.sku_id)]??0} onChange={v=>setCart({...cart,[String(s.sku_id)]:v??0})}/>}]}/>

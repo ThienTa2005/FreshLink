@@ -26,23 +26,29 @@ public class MediaController {
     }
 
     @PostMapping public ApiResponse<?> upload(@AuthenticationPrincipal Actor actor,
-                                               @RequestParam MultipartFile file) throws Exception {
+                                               @RequestParam MultipartFile file,
+                                               @RequestParam(required=false, defaultValue="false") boolean isPublic) throws Exception {
         if(file.isEmpty() || file.getSize()>10*1024*1024) throw new IllegalArgumentException("Tệp phải từ 1 byte đến 10 MB");
         byte[] bytes=file.getBytes();
         String mimeType=detectType(bytes);
         String original=Optional.ofNullable(file.getOriginalFilename()).orElse("evidence");
         if(original.length()>255) original=original.substring(original.length()-255);
-        MediaStorage.Stored stored=storage.upload(bytes,UUID.randomUUID().toString());
+        MediaStorage.Stored stored = isPublic
+            ? storage.upload(bytes, UUID.randomUUID().toString(), true)
+            : storage.upload(bytes, UUID.randomUUID().toString());
         try {
             long id=sql.insert("""
                 INSERT INTO media_files(uploaded_by,original_name,storage_provider,storage_key,cloudinary_asset_id,
                   cloudinary_resource_type,cloudinary_delivery_type,cloudinary_format,cloudinary_version,
-                  mime_type,file_size_bytes,file_hash_sha256)
-                VALUES (?,?,'CLOUDINARY',?,?,?,?,?,?,?,?,?)
+                  mime_type,file_size_bytes,file_hash_sha256,visibility)
+                VALUES (?,?,'CLOUDINARY',?,?,?,?,?,?,?,?,?,?)
                 """,actor.userId(),original,stored.publicId(),stored.assetId(),stored.resourceType(),
                 stored.deliveryType(),stored.format(),stored.version(),mimeType,stored.bytes(),
-                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-            return ApiResponse.success(Map.of("id",id,"name",original),"Đã lưu bằng chứng");
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)),
+                isPublic ? "PUBLIC" : "PRIVATE");
+            String url = stored.secureUrl() != null && !stored.secureUrl().isBlank()
+                ? stored.secureUrl() : "/api/public/media/" + id;
+            return ApiResponse.success(Map.of("id",id,"name",original,"url",url),"Đã lưu tệp hình ảnh");
         } catch(RuntimeException e) {
             storage.delete(stored);
             throw e;
@@ -99,6 +105,16 @@ public class MediaController {
                                                                @PathVariable long id) {
         var file=authorizedFile(actor,id);
         var access=storage.createAccessUrl(stored(file),Instant.now().plusSeconds(accessSeconds));
+        return ResponseEntity.status(HttpStatus.FOUND).location(java.net.URI.create(access.url())).build();
+    }
+
+    @GetMapping("/public/media/{id}") public ResponseEntity<Void> publicDownload(@PathVariable long id) {
+        var file=jdbc.queryForMap("""
+            SELECT original_name,storage_provider,storage_key,cloudinary_asset_id,cloudinary_resource_type,
+              cloudinary_delivery_type,cloudinary_format,cloudinary_version,mime_type,uploaded_by,file_size_bytes
+            FROM media_files WHERE file_id=?
+            """,id);
+        var access=storage.createAccessUrl(stored(file),Instant.now().plusSeconds(86400));
         return ResponseEntity.status(HttpStatus.FOUND).location(java.net.URI.create(access.url())).build();
     }
 }

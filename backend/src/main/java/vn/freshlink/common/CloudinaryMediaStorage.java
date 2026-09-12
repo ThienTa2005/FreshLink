@@ -27,16 +27,23 @@ public class CloudinaryMediaStorage implements MediaStorage {
 
     @Override
     public Stored upload(byte[] content, String publicId) {
+        return upload(content, publicId, false);
+    }
+
+    @Override
+    public Stored upload(byte[] content, String publicId, boolean isPublic) {
         requireConfigured();
         String fullPublicId = folder.isBlank() ? publicId : folder + "/" + publicId;
+        String deliveryType = isPublic ? "upload" : "authenticated";
         try {
             Map<?,?> result = cloudinary.uploader().upload(content, ObjectUtils.asMap(
-                "resource_type", "auto", "type", "authenticated", "public_id", fullPublicId,
+                "resource_type", "auto", "type", deliveryType, "public_id", fullPublicId,
                 "overwrite", false, "use_filename", false, "unique_filename", false));
+            String secureUrl = result.get("secure_url") != null ? String.valueOf(result.get("secure_url")) : null;
             return new Stored(String.valueOf(result.get("asset_id")), String.valueOf(result.get("public_id")),
                 String.valueOf(result.get("resource_type")), String.valueOf(result.get("type")),
                 String.valueOf(result.get("format")), ((Number)result.get("version")).longValue(),
-                ((Number)result.get("bytes")).longValue());
+                ((Number)result.get("bytes")).longValue(), secureUrl);
         } catch (Exception e) {
             throw new IllegalStateException("Không thể lưu tệp lên Cloudinary", e);
         }
@@ -46,6 +53,9 @@ public class CloudinaryMediaStorage implements MediaStorage {
     public Access createAccessUrl(Stored stored, Instant expiresAt) {
         requireConfigured();
         try {
+            if ("upload".equals(stored.deliveryType()) && stored.secureUrl() != null && !stored.secureUrl().isBlank()) {
+                return new Access(stored.secureUrl(), expiresAt);
+            }
             String url = cloudinary.privateDownload(stored.publicId(), stored.format(), ObjectUtils.asMap(
                 "resource_type", stored.resourceType(), "type", stored.deliveryType(),
                 "expires_at", expiresAt.getEpochSecond(), "attachment", true));

@@ -84,12 +84,13 @@ export async function downloadEvidence(id: number) {
   anchor.click()
 }
 
-export async function uploadEvidence(file: File): Promise<{ id: number; name: string }> {
+export async function uploadEvidence(file: File, isPublic = false): Promise<{ id: number; name: string; url?: string }> {
   const body = new FormData(); body.append('file', file)
-  const response = await fetchWithTimeout(`${API_URL}/media`, {
+  const query = isPublic ? '?isPublic=true' : ''
+  const response = await fetchWithTimeout(`${API_URL}/media${query}`, {
     method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body,
   })
-  return readResponse<{ id: number; name: string }>(response)
+  return readResponse<{ id: number; name: string; url?: string }>(response)
 }
 
 export async function downloadApiFile(path: string, fallbackName: string) {

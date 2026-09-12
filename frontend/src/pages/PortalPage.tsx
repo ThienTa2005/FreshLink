@@ -75,10 +75,16 @@ export default function PortalPage() {
       items: [
         { key: 'dashboard', label: 'Việc hôm nay', icon: 'dashboard', allow: true },
         {
+          key: 'products',
+          label: 'Sản phẩm HTX',
+          icon: 'spa',
+          allow: supplier && has('SUPPLIER_MANAGER', 'SUPPLIER_STAFF')
+        },
+        {
           key: 'orders',
           label: 'Đơn hàng B2B',
           icon: 'inventory_2',
-          allow: has('RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER', 'RESTAURANT_RECEIVER', 'OPERATIONS_COORDINATOR', 'ACCOUNTANT', 'CUSTOMER_SUPPORT')
+          allow: !supplier && has('RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER', 'RESTAURANT_RECEIVER', 'OPERATIONS_COORDINATOR', 'ACCOUNTANT', 'CUSTOMER_SUPPORT')
         },
         {
           key: 'supply-requests',
@@ -181,7 +187,7 @@ export default function PortalPage() {
   } else if (root === 'invoices') {
     content = <InvoicesPage restaurantId={internal ? undefined : m.organizationId} accountant={has('ACCOUNTANT')} />
   } else if (supplier) {
-    content = <SupplierPage organizationId={m.organizationId} initialTab={root === 'batches' ? 'batches' : root === 'settlements' ? 'billing' : 'requests'} />
+    content = <SupplierPage organizationId={m.organizationId} initialTab={root === 'batches' ? 'batches' : root === 'settlements' ? 'billing' : root === 'products' ? 'products' : 'requests'} />
   } else if (!internal) {
     content = <RestaurantPage organizationId={m.organizationId} initialTab={root === 'orders' ? (id === 'new' ? 'order' : 'orders') : root} />
   } else if (root === 'trips') {

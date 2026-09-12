@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Drawer, Button } from 'antd'
+import { useAuth } from '../auth/AuthContext'
 
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({ light = false, to }: { light?: boolean; to?: string }) {
   const [imgError, setImgError] = useState(false)
+  const { user } = useAuth()
+  const targetPath = to ?? (user ? '/portal/dashboard' : '/')
+
   return (
-    <Link className={`brand-mark${light ? ' brand-mark-light' : ''}`} to="/" aria-label="FreshLink — Trang chủ">
+    <Link className={`brand-mark${light ? ' brand-mark-light' : ''}`} to={targetPath} aria-label="FreshLink — Trang chủ">
       {!imgError ? (
         <img
           src="/freshlink-logo.png"
@@ -26,6 +30,8 @@ export function Logo({ light = false }: { light?: boolean }) {
 
 export function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user } = useAuth()
+
   return (
     <header className="public-header">
       <div className="public-header-inner">
@@ -37,11 +43,20 @@ export function PublicHeader() {
           <Link to="/trace/demo">Tra cứu lô</Link>
         </nav>
         <div className="public-actions">
-          <Link className="link-button" to="/login">Đăng nhập</Link>
-          <Link className="button button-small" to="/register">
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>how_to_reg</span>
-            Đăng ký hợp tác
-          </Link>
+          {user ? (
+            <Link className="button button-small" to="/portal/dashboard" style={{ background: '#176b45', color: '#ffffff', fontWeight: 700 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>dashboard</span>
+              Vào không gian làm việc
+            </Link>
+          ) : (
+            <>
+              <Link className="link-button" to="/login">Đăng nhập</Link>
+              <Link className="button button-small" to="/register">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>how_to_reg</span>
+                Đăng ký hợp tác
+              </Link>
+            </>
+          )}
           <Button
             type="text"
             className="mobile-nav-toggle"

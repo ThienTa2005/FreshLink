@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7fff3"/>
+      <stop offset="60%" stop-color="#dcfaec"/>
+      <stop offset="100%" stop-color="#cbe9db"/>
+    </linearGradient>
+    <linearGradient id="crateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#176b45"/>
+      <stop offset="100%" stop-color="#005131"/>
+    </linearGradient>
+    <linearGradient id="leafGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#40c057"/>
+      <stop offset="100%" stop-color="#2f9e44"/>
+    </linearGradient>
+    <linearGradient id="leafGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8ce99a"/>
+      <stop offset="100%" stop-color="#37b24d"/>
+    </linearGradient>
+    <linearGradient id="tomatoGrad" x1="20%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#ff6b6b"/>
+      <stop offset="40%" stop-color="#fa5252"/>
+      <stop offset="100%" stop-color="#c92a2a"/>
+    </linearGradient>
+    <linearGradient id="carrotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffa94d"/>
+      <stop offset="100%" stop-color="#f76707"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#052018" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="200" height="200" rx="20" fill="url(#bgGrad)"/>
+
+  <!-- Ambient Circular Glow -->
+  <circle cx="100" cy="95" r="70" fill="#ffffff" opacity="0.6"/>
+
+  <!-- Cold-Chain IoT Radar Ring -->
+  <circle cx="100" cy="95" r="75" fill="none" stroke="#88d7a8" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>
+
+  <!-- Main Illustration Group with Soft Shadow -->
+  <g filter="url(#shadow)">
+    <!-- Insulated Harvest Crate (Back layer) -->
+    <path d="M 40 115 L 160 115 L 152 165 C 152 169, 148 172, 144 172 L 56 172 C 52 172, 48 169, 48 165 Z" fill="url(#crateGrad)"/>
+    
+    <!-- Crate Top Rim -->
+    <rect x="36" y="110" width="128" height="12" rx="4" fill="#005131"/>
+    
+    <!-- Crate Ventilation Handles -->
+    <rect x="82" y="130" width="36" height="8" rx="4" fill="#052018" opacity="0.35"/>
+    <line x1="56" y1="148" x2="144" y2="148" stroke="#a4f4c3" stroke-width="1.5" opacity="0.3"/>
+
+    <!-- Fresh Produce: Big Crisp Leaves (Left) -->
+    <path d="M 60 112 C 50 80, 75 55, 92 68 C 98 73, 90 98, 76 112 Z" fill="url(#leafGrad1)"/>
+    <path d="M 68 112 Q 78 88 88 74" stroke="#d3f9d8" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+    <!-- Fresh Produce: Crisp Leaf (Center-Right) -->
+    <path d="M 98 112 C 105 72, 135 60, 142 80 C 145 88, 128 105, 114 112 Z" fill="url(#leafGrad2)"/>
+    <path d="M 106 112 Q 120 90 134 82" stroke="#ebfbee" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+    <!-- Carrot (Diagonal in Crate) -->
+    <path d="M 125 110 L 150 78 C 153 74, 158 76, 156 81 L 138 120 Z" fill="url(#carrotGrad)"/>
+    <path d="M 150 78 L 156 68 M 152 76 L 164 72 M 148 79 L 152 65" stroke="#2b8a3e" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Plump Beef Tomato (Front Center) -->
+    <circle cx="98" cy="116" r="24" fill="url(#tomatoGrad)"/>
+    <!-- Tomato Highlight -->
+    <ellipse cx="88" cy="106" rx="6" ry="4" fill="#ffffff" opacity="0.45" transform="rotate(-25 88 106)"/>
+    
+    <!-- Tomato Star Calyx -->
+    <path d="M 98 94 L 95 90 L 98 92 L 102 88 L 100 92 L 106 91 L 101 94 L 104 98 L 99 95 L 95 99 L 97 94 Z" fill="#2b8a3e"/>
+    <path d="M 98 92 Q 97 86 94 84" stroke="#2b8a3e" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+    <!-- Fresh Dewdrop -->
+    <circle cx="108" cy="122" r="2.5" fill="#ffffff" opacity="0.8"/>
+  </g>
+
+  <!-- Cold-Chain IoT Frost Sparkles -->
+  <g fill="#176b45" opacity="0.8">
+    <path d="M 35 48 L 38 40 L 41 48 L 49 51 L 41 54 L 38 62 L 35 54 L 27 51 Z" fill="#005131"/>
+    <circle cx="168" cy="46" r="3" fill="#40c057"/>
+    <path d="M 162 135 L 164 129 L 166 135 L 172 137 L 166 139 L 164 145 L 162 139 L 156 137 Z" fill="#176b45"/>
+  </g>
+
+  <!-- Bottom Badge: VietGAP & Cold Chain -->
+  <rect x="42" y="178" width="116" height="16" rx="8" fill="#005131"/>
+  <text x="100" y="189" font-family="'Inter', sans-serif" font-size="8.5" font-weight="700" fill="#a4f4c3" text-anchor="middle" letter-spacing="0.05em">
+    VIETGAP • COLD-CHAIN
+  </text>
+</svg>
