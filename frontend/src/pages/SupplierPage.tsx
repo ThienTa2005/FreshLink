@@ -32,6 +32,9 @@ export default function SupplierPage({organizationId,initialTab='products'}:{org
    zoom={6}
    center={[16.0, 107.5]}
  />},
- ...(manager?[{key:'billing',label:'Đối soát',children:<><DataTable path={'/billing/suppliers?supplierId='+organizationId} rowKey="batch_id" columns={[[ 'batch_code','Lô'],['accepted_quantity','Lượng đạt'],['supplier_unit_price','Đơn giá'],['payable','Giá trị đối soát']]}/><DataTable path={'/billing/settlements?supplierId='+organizationId} rowKey="settlement_id" columns={[[ 'settlement_code','Phiếu đối soát'],['payable_amount','Phải trả'],['status','Trạng thái'],['paid_at','Ngày trả']]} actions={r=><Link to={'/portal/settlements/'+r.settlement_id}>Chi tiết</Link>}/></>}]:[])
+  ...(manager?[
+    {key:'farms',label:'Vùng trồng & Địa chỉ',children:<><DataTable path={'/addresses?organizationId='+organizationId} rowKey="address_id" columns={[[ 'address_name','Tên vùng trồng'],['address_line','Địa chỉ cụ thể'],['district','Huyện/TX'],['city','Tỉnh/TP']]}/><ActionForm title="Thêm vùng trồng / Nông trại HTX cụ thể" path="/addresses" fields={[{name:'name',label:'Tên vùng trồng / Nông trại (VD: Nông trường Mộc Châu #1)'},{name:'address',label:'Số nhà / Thôn / Bản / Tiểu khu'},{name:'ward',label:'Xã / Thị trấn'},{name:'district',label:'Huyện / Thị xã'},{name:'city',label:'Tỉnh / Thành phố'},{name:'contactName',label:'Chủ nhiệm / Quản lý nông trại'},{name:'phone',label:'Số điện thoại liên hệ'}]} transform={v=>({...v,organizationId,type:'FARM'})}/></>},
+    {key:'billing',label:'Đối soát',children:<><DataTable path={'/billing/suppliers?supplierId='+organizationId} rowKey="batch_id" columns={[[ 'batch_code','Lô'],['accepted_quantity','Lượng đạt'],['supplier_unit_price','Đơn giá'],['payable','Giá trị đối soát']]}/><DataTable path={'/billing/settlements?supplierId='+organizationId} rowKey="settlement_id" columns={[[ 'settlement_code','Phiếu đối soát'],['payable_amount','Phải trả'],['status','Trạng thái'],['paid_at','Ngày trả']]} actions={r=><Link to={'/portal/settlements/'+r.settlement_id}>Chi tiết</Link>}/></>}
+  ]:[])
  ]}/>
 }

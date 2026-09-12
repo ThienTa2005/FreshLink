@@ -8,12 +8,15 @@ import { SourcingWorkbench } from './SourcingWorkbench'
 import { useAuth } from '../auth/AuthContext'
 import { ActionForm, DataTable, QrButton, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import TripPage from './TripPage'
+import { AiTripOptimizerModal } from '../components/AiTripOptimizerModal'
 
 export default function OperationsPage({ initialTab }: { initialTab?: string }) {
   const { membership } = useAuth(); const roles = membership?.roles ?? []
   const [tab,setTab]=useUrlTab(initialTab??(roles.includes('QUALITY_INSPECTOR')?'gate':roles.includes('CUSTOMER_SUPPORT')?'claims':roles.includes('ACCOUNTANT')?'billing':'overview'))
   const can = (role: string) => roles.includes('SYSTEM_ADMIN') || roles.includes(role)
   const [date, setDate] = useState(tomorrow()); const [error, setError] = useState(''); const client = useQueryClient()
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [selectedDockId, setSelectedDockId] = useState<number>()
   const lookup = useQuery({ queryKey: ['lookup'], queryFn: () => api<{ organizations: Row[]; addresses: Row[]; drivers: Row[] }>('/operations/lookup') })
   const catalog = useRows(`/public/catalog?date=${date}`)
   const categories = useRows('/public/categories')
@@ -29,21 +32,119 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
   const [cskhOverdue, setCskhOverdue] = useState(false)
   const dashboard = useQuery({ queryKey: ['dashboard', date], queryFn: () => api<Record<string, number>>(`/operations/dashboard?date=${date}`), enabled: can('OPERATIONS_COORDINATOR') })
   const docks = options(lookup.data?.addresses.filter(a => a.address_type === 'CROSS_DOCK'), 'address_id', 'address_name')
+  const candidateOrders = orders.data?.filter(o => ['SOURCING', 'CONFIRMED'].includes(String(o.order_status))) || []
+
   return <><Space wrap className="action-card"><strong>Ngày vận hành</strong><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Space>
     {error && <Alert type="error" message={error} />}{lookup.error && <Alert type="error" message={lookup.error.message} />}
     <Tabs activeKey={tab} onChange={setTab} items={[
       ...(can('OPERATIONS_COORDINATOR') ? [
         { key: 'overview', label: 'Tổng quan', children: <><div className="stat-grid">{[['shortages', 'Đơn thiếu nguồn'], ['waitingBatches', 'Lô chờ kiểm'], ['trips', 'Chuyến chưa xong'], ['claims', 'Khiếu nại chờ xử lý']].map(([key, title]) => <Card key={key}><Statistic title={title} value={dashboard.data?.[key] ?? 0} loading={dashboard.isPending} /></Card>)}</div><DataTable path={`/operations/orders?date=${date}`} rowKey="order_id" columns={[[ 'order_code', 'Đơn' ], ['order_status', 'Trạng thái'], ['total_amount', 'Tổng tiền']]} /></> },
         {key:'source',label:'Phân nguồn',children:<SourcingWorkbench date={date}/>},
-        { key: 'trips', label: 'Điều phối giao', children: <><ActionForm title="Chuyến giao" path="/trips" fields={[
-          { name: 'date', label: 'Ngày giao', type: 'date', initial: date }, { name: 'originId', label: 'Điểm tập kết', type: 'select', options: docks }, { name: 'driverId', label: 'Tài xế', type: 'select', options: options(lookup.data?.drivers, 'user_id', 'full_name') }, { name: 'orderIds', label: 'Đơn theo thứ tự điểm giao', type: 'multiple', options: options(orders.data?.filter(o => ['SOURCING', 'CONFIRMED'].includes(String(o.order_status))), 'order_id', 'order_code') },
-        ]} /><TripPage canOptimize /><DataTable path="/operations/stops" rowKey="trip_stop_id" columns={[[ 'label', 'Kiện theo điểm giao' ]]} actions={r => <QrButton type="DELIVERY_PACKAGE" id={r.trip_stop_id} />} /></> },
+        { key: 'trips', label: 'Điều phối giao', children: <>
+          {/* AI SMART DISPATCH HERO CARD */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '1.5px solid #86efac',
+            borderRadius: 14,
+            padding: '18px 22px',
+            marginBottom: 20,
+            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 12,
+                  background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 28 }}>smart_toy</span>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <h3 style={{ margin: 0, color: '#064e3b', fontSize: 18, fontWeight: 700 }}>
+                      Điều Phối Thông Minh — Tối Ưu Ghép Chuyến Bằng AI
+                    </h3>
+                    <span style={{ background: '#059669', color: '#ffffff', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                      Google Gemini
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, color: '#047857', fontSize: 13.5 }}>
+                    AI tự động phân tích tọa độ GPS, tải trọng xe lạnh, khoảng cách đường đi và chi phí để đề xuất gom chuyến tối ưu.
+                    {candidateOrders.length > 0 ? (
+                      <strong style={{ color: '#065f46', marginLeft: 6 }}>
+                        (Đang có {candidateOrders.length} đơn hàng sẵn sàng chia chuyến)
+                      </strong>
+                    ) : (
+                      <span style={{ color: '#64748b', marginLeft: 6 }}>(Chưa có đơn chờ chia chuyến ngày này)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <Space size="middle" wrap>
+                <select
+                  value={selectedDockId ?? (docks[0] ? Number(docks[0].value) : '')}
+                  onChange={e => setSelectedDockId(Number(e.target.value))}
+                  style={{ height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid #a7f3d0', background: '#ffffff', fontWeight: 500 }}
+                >
+                  {docks.map(d => (
+                    <option key={d.value} value={d.value}>{d.label}</option>
+                  ))}
+                </select>
+
+                <Button
+                  type="primary"
+                  size="large"
+                  onClick={() => {
+                    if (!selectedDockId && docks.length > 0) {
+                      setSelectedDockId(Number(docks[0].value))
+                    }
+                    setAiModalOpen(true)
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    borderColor: '#047857',
+                    height: 40,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)'
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>auto_awesome</span>
+                  Phân tích & Gợi ý ghép chuyến AI
+                </Button>
+              </Space>
+            </div>
+          </div>
+
+          <AiTripOptimizerModal
+            open={aiModalOpen}
+            onClose={() => setAiModalOpen(false)}
+            date={date}
+            originId={selectedDockId || (docks[0] ? Number(docks[0].value) : undefined)}
+            drivers={lookup.data?.drivers}
+            onApplied={async () => {
+              await client.invalidateQueries()
+            }}
+          />
+
+          <ActionForm title="Chuyến giao (Tự ghép tay thủ công)" path="/trips" fields={[
+            { name: 'date', label: 'Ngày giao', type: 'date', initial: date }, { name: 'originId', label: 'Điểm tập kết', type: 'select', options: docks }, { name: 'driverId', label: 'Tài xế', type: 'select', options: options(lookup.data?.drivers, 'user_id', 'full_name') }, { name: 'orderIds', label: 'Đơn theo thứ tự điểm giao', type: 'multiple', options: options(candidateOrders, 'order_id', 'order_code') },
+          ]} /><TripPage canOptimize /><DataTable path="/operations/stops" rowKey="trip_stop_id" columns={[[ 'label', 'Kiện theo điểm giao' ]]} actions={r => <QrButton type="DELIVERY_PACKAGE" id={r.trip_stop_id} />} /></> },
         { key: 'prices', label: 'Giá và cấu hình', children: <><ActionForm title="Giá bán" path="/operations/prices" fields={[
           { name: 'skuId', label: 'SKU', type: 'select', options: options(catalog.data, 'sku_id', 'sku_name') }, { name: 'price', label: 'Đơn giá bán (đ)', type: 'number' }, { name: 'date', label: 'Áp dụng từ ngày giao', type: 'date', initial: date },
         ]} /><ActionForm title="Sản phẩm và SKU" path="/operations/catalog" fields={[
           { name: 'categoryId', label: 'Nhóm sản phẩm', type: 'select', options: options(categories.data, 'category_id', 'category_name') }, { name: 'productCode', label: 'Mã sản phẩm' }, { name: 'name', label: 'Tên sản phẩm' }, { name: 'skuCode', label: 'Mã SKU' }, { name: 'packDescription', label: 'Quy cách' }, { name: 'unit', label: 'Đơn vị', type: 'select', options: [{ value: 'KG', label: 'kg' }, { value: 'PACK', label: 'Gói' }, { value: 'BOX', label: 'Hộp' }, { value: 'CRATE', label: 'Thùng' }] }, { name: 'packSize', label: 'Khối lượng mỗi đơn vị (kg)', type: 'number', min: 0.001 }, { name: 'minimum', label: 'Đặt tối thiểu', type: 'number', min: 0.001 }, { name: 'step', label: 'Bước tăng số lượng', type: 'number', min: 0.001 },
         ]} /><ActionForm title="Điểm tập kết" path="/addresses" fields={[
-          { name: 'organizationId', label: 'Đơn vị FreshLink', type: 'select', options: options(lookup.data?.organizations.filter(o => o.organization_type === 'FRESHLINK'), 'organization_id', 'organization_name') }, { name: 'name', label: 'Tên điểm' }, { name: 'address', label: 'Địa chỉ' }, { name: 'district', label: 'Quận/huyện' }, { name: 'city', label: 'Tỉnh/thành phố' }, { name: 'contactName', label: 'Người liên hệ' }, { name: 'phone', label: 'Số điện thoại' },
+          { name: 'organizationId', label: 'Đơn vị FreshLink', type: 'select', options: options(lookup.data?.organizations.filter(o => o.organization_type === 'FRESHLINK'), 'organization_id', 'organization_name') }, { name: 'name', label: 'Tên điểm' }, { name: 'address', label: 'Số nhà, tên đường' }, { name: 'ward', label: 'Phường/xã' }, { name: 'district', label: 'Quận/huyện' }, { name: 'city', label: 'Tỉnh/thành phố', initial: 'Hà Nội' }, { name: 'contactName', label: 'Người liên hệ' }, { name: 'phone', label: 'Số điện thoại' },
         ]} transform={v => ({ ...v, type: 'CROSS_DOCK' })} /></> },
         { key: 'assets', label: 'Thùng', children: <><ActionForm title="Thùng mới" path="/assets" fields={[{ name: 'code', label: 'Mã thùng' }]} /><DataTable path="/assets" rowKey="asset_id" columns={[[ 'asset_id', 'ID' ], ['asset_code', 'Mã'], ['status', 'Trạng thái'], ['current_organization_id', 'Đơn vị giữ']]} actions={r => <QrButton type="RETURNABLE_ASSET" id={r.asset_id} />} /><ActionForm title="Luân chuyển thùng" path={v => `/assets/${v.assetId}/move`} fields={[
           { name: 'assetId', label: 'Thùng', type: 'select', options: options(assetRows.data, 'asset_id', 'asset_code') }, { name: 'action', label: 'Thao tác', type: 'select', options: [{ value: 'ISSUE', label: 'Cấp thùng cho chuyến' }, { value: 'CLEAN', label: 'Đã vệ sinh và kiểm tra đạt' }] }, { name: 'stopId', label: 'Điểm giao (khi cấp thùng)', type: 'select', required: false, options: options(stopRows.data, 'trip_stop_id', 'label') }, { name: 'note', label: 'Ghi chú' },

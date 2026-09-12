@@ -17,7 +17,12 @@ public class AddressManagementController {
     public AddressManagementController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     public record Update(@NotBlank @Size(max=100) String name, @NotBlank @Size(max=300) String address,
                          @NotBlank @Size(max=100) String district, @NotBlank @Size(max=100) String city,
-                         @NotBlank @Size(max=150) String contactName, @NotBlank @Size(max=20) String phone) {}
+                         @NotBlank @Size(max=150) String contactName, @NotBlank @Size(max=20) String phone,
+                         @Size(max=100) String ward, java.math.BigDecimal latitude, java.math.BigDecimal longitude) {
+        public Update(String name, String address, String district, String city, String contactName, String phone) {
+            this(name, address, district, city, contactName, phone, null, null, null);
+        }
+    }
     private void authorize(Actor actor, long id) {
         long organization=jdbc.queryForObject("SELECT organization_id FROM addresses WHERE address_id=? FOR UPDATE",Long.class,id);
         actor.requireOrganization(organization,"RESTAURANT_MANAGER","SUPPLIER_MANAGER","OPERATIONS_COORDINATOR");
@@ -36,8 +41,9 @@ public class AddressManagementController {
                  + (SELECT COUNT(*) FROM asset_movements WHERE from_address_id=? OR to_address_id=?)
             """,Integer.class,id,id,id,id,id,id,id,id);
         if(used>0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Địa chỉ đã được sử dụng. Hãy tạo địa chỉ mới để giữ nguyên lịch sử");
-        jdbc.update("UPDATE addresses SET address_name=?,address_line=?,district=?,city=?,contact_name=?,contact_phone=? WHERE address_id=?",
-            r.name(),r.address(),r.district(),r.city(),r.contactName(),r.phone(),id);
+        double[] coords = vn.freshlink.delivery.GeoUtils.resolveCoordinates(r.latitude(), r.longitude(), r.ward(), r.district(), r.city(), (int)(id % 100));
+        jdbc.update("UPDATE addresses SET address_name=?,address_line=?,ward=?,district=?,city=?,contact_name=?,contact_phone=?,latitude=?,longitude=? WHERE address_id=?",
+            r.name(),r.address(),r.ward(),r.district(),r.city(),r.contactName(),r.phone(),coords[0],coords[1],id);
         return ApiResponse.success(null,"Đã cập nhật địa chỉ");
     }
     @DeleteMapping("/{id}") @Transactional

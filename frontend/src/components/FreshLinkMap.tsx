@@ -51,11 +51,20 @@ export interface VehicleMapPoint {
   status?: string
 }
 
+export interface MultiTripRoute {
+  tripIndex: number
+  tripCode?: string
+  color?: string
+  driverName?: string
+  stops: TripStopMapPoint[]
+}
+
 export interface FreshLinkMapProps {
   title?: string
   subtitle?: string
   hubs?: ColdChainHubPoint[]
   stops?: TripStopMapPoint[]
+  multiRoutes?: MultiTripRoute[]
   origin?: {
     name?: string
     address_line?: string
@@ -132,6 +141,7 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
   subtitle,
   hubs = [],
   stops = [],
+  multiRoutes = [],
   origin,
   vehicles = [],
   height = '440px',
@@ -460,6 +470,95 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
       }
     }
 
+    // 3B. RENDER MULTIPLE TRIP ROUTES (FOR AI DISPATCH & FLEET OPTIMIZATION)
+    if ((activeFilter === 'ALL' || activeFilter === 'STOPS') && multiRoutes && multiRoutes.length > 0) {
+      const ROUTE_PALETTE = ['#16a34a', '#2563eb', '#d97706', '#9333ea', '#0891b2', '#dc2626']
+      multiRoutes.forEach((route, rIdx) => {
+        const color = route.color || ROUTE_PALETTE[rIdx % ROUTE_PALETTE.length]
+        const mCoords: [number, number][] = []
+        if (originCoords) mCoords.push(originCoords)
+
+        route.stops.forEach((stop, sIdx) => {
+          const coords = resolveCoordinates(
+            stop.latitude,
+            stop.longitude,
+            stop.district,
+            stop.city,
+            rIdx * 10 + sIdx + 1
+          )
+          boundsPoints.push(coords)
+          mCoords.push(coords)
+
+          const stopHtml = `
+            <div class="fl-marker-stop">
+              <div class="fl-marker-stop-pin" style="background:${color};border-color:#ffffff;box-shadow:0 0 10px ${color}80;color:#ffffff;font-weight:700;">
+                ${route.tripIndex}.${stop.stop_sequence}
+              </div>
+              <div class="fl-marker-stop-label" style="border-left: 3px solid ${color};">
+                ${stop.restaurant_name || stop.address_name || `Điểm #${stop.stop_sequence}`}
+              </div>
+            </div>
+          `
+          const stopIcon = L.divIcon({
+            html: stopHtml,
+            className: 'fl-stop-div-icon',
+            iconSize: [36, 50],
+            iconAnchor: [18, 25],
+            popupAnchor: [0, -28]
+          })
+          const marker = L.marker(coords, { icon: stopIcon })
+          marker.bindPopup(`
+            <div class="fl-popup-card">
+              <div class="fl-popup-title" style="color:${color};">
+                <span>Chuyến #${route.tripIndex} · Điểm #${stop.stop_sequence}: ${stop.restaurant_name || stop.address_name || 'Nhà hàng'}</span>
+              </div>
+              <div class="fl-popup-address">${stop.address_line || ''}, ${stop.district || ''}, ${stop.city || ''}</div>
+              <div class="fl-popup-metrics">
+                <div class="fl-popup-metric-item">
+                  <span class="fl-popup-metric-label">Tài xế</span>
+                  <span class="fl-popup-metric-val">${route.driverName || 'Chưa phân công'}</span>
+                </div>
+                <div class="fl-popup-metric-item">
+                  <span class="fl-popup-metric-label">Mã đơn</span>
+                  <span class="fl-popup-metric-val">${stop.order_code || '-'}</span>
+                </div>
+                <div class="fl-popup-metric-item">
+                  <span class="fl-popup-metric-label">Người nhận</span>
+                  <span class="fl-popup-metric-val">${stop.contact_name || 'Bếp'}</span>
+                </div>
+                <div class="fl-popup-metric-item">
+                  <span class="fl-popup-metric-label">SĐT</span>
+                  <span class="fl-popup-metric-val">${stop.contact_phone || '-'}</span>
+                </div>
+              </div>
+            </div>
+          `)
+          if (onStopClick) marker.on('click', () => onStopClick(stop))
+          marker.addTo(lg)
+        })
+
+        if (originCoords) {
+          mCoords.push(originCoords)
+        }
+
+        if (mCoords.length >= 2) {
+          L.polyline(mCoords, {
+            color: color,
+            weight: 6,
+            opacity: 0.3,
+            lineJoin: 'round'
+          }).addTo(lg)
+          L.polyline(mCoords, {
+            color: color,
+            weight: 3.5,
+            dashArray: '6, 8',
+            opacity: 0.95,
+            lineJoin: 'round'
+          }).addTo(lg)
+        }
+      })
+    }
+
     // 4. RENDER VEHICLES
     if (activeFilter === 'ALL' || activeFilter === 'VEHICLES') {
       vehicles.forEach(veh => {
@@ -518,7 +617,7 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
       }
     }
-  }, [hubs, stops, origin, vehicles, activeFilter, showFitBounds, zoom, onHubClick, onStopClick])
+  }, [hubs, stops, multiRoutes, origin, vehicles, activeFilter, showFitBounds, zoom, onHubClick, onStopClick])
 
   const handleFitAll = () => {
     const map = mapInstanceRef.current
@@ -527,6 +626,9 @@ export const FreshLinkMap: React.FC<FreshLinkMapProps> = ({
     const points: [number, number][] = []
     hubs.forEach(h => points.push([h.latitude, h.longitude]))
     stops.forEach((s, idx) => points.push(resolveCoordinates(s.latitude, s.longitude, s.district, s.city, idx + 1)))
+    multiRoutes.forEach((r, rIdx) => {
+      r.stops.forEach((s, sIdx) => points.push(resolveCoordinates(s.latitude, s.longitude, s.district, s.city, rIdx * 10 + sIdx + 1)))
+    })
     if (origin) {
       points.push(resolveCoordinates(origin.latitude, origin.longitude, origin.district, origin.city, 0))
     }
