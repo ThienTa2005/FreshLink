@@ -3,16 +3,29 @@ import { Alert, Button, Card, DatePicker, Empty, List, Space, Statistic, Tag } f
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { api } from '../api/http'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import { roleNames, entityUrl } from '../components/permissions'
+import { useRows } from '../components/Workspace'
 import { ActionForm, DataTable, type Row } from '../components/Workspace'
 
 export function NotificationsPage(){
- const client=useQueryClient();const [unread,setUnread]=useState(false);const query=useQuery({queryKey:['notifications',unread],queryFn:()=>api<Row[]>(`/notifications?unreadOnly=${unread}&limit=100`)})
+ const client=useQueryClient();const [unread,setUnread]=useState(false);const query=useQuery({queryKey:['notifications',unread],queryFn:()=>api<Row[]>(`/notifications?unreadOnly=${unread}&limit=100`),refetchInterval:30000})
  const mutate=async(path:string)=>{await api(path,'POST');await client.invalidateQueries({queryKey:['notifications']})}
- return <Card className="management-card" title="Trung tâm thông báo" extra={<Space><Button type={unread?'primary':'default'} onClick={()=>setUnread(!unread)}>Chưa đọc</Button><Button onClick={()=>void mutate('/notifications/read-all')}>Đánh dấu đã đọc</Button></Space>}>{query.error&&<Alert type="error" message={query.error.message}/>}<List loading={query.isPending} locale={{emptyText:<Empty description="Chưa có thông báo"/>}} dataSource={query.data??[]} renderItem={item=><List.Item className={item.read_at?'':'notification-unread'} actions={item.read_at?[]:[<Button key="read" type="link" onClick={()=>void mutate(`/notifications/${item.notification_id}/read`)}>Đã đọc</Button>]}><List.Item.Meta title={<Space><span>{String(item.title)}</span>{!item.read_at&&<Tag color="green">Mới</Tag>}</Space>} description={<><p>{String(item.message)}</p><small>{String(item.created_at)}</small></>}/></List.Item>}/></Card>
+ return <Card className="management-card" title="Trung tâm thông báo" extra={<Space><Button type={unread?'primary':'default'} onClick={()=>setUnread(!unread)}>Chưa đọc</Button><Button onClick={()=>void mutate('/notifications/read-all')}>Đánh dấu đã đọc</Button></Space>}>{query.error&&<Alert type="error" message={query.error.message}/>}<List loading={query.isPending} locale={{emptyText:<Empty description="Chưa có thông báo"/>}} dataSource={query.data??[]} renderItem={item=><List.Item className={item.read_at?'':'notification-unread'} actions={item.read_at?[]:[<Button key="read" type="link" onClick={()=>void mutate(`/notifications/${item.notification_id}/read`)}>Đã đọc</Button>]}><List.Item.Meta title={<Space><Link to={entityUrl(item.related_entity_type,item.related_entity_id)}>{String(item.title)}</Link>{!item.read_at&&<Tag color="green">Mới</Tag>}</Space>} description={<><p>{String(item.message)}</p><small>{String(item.created_at)}</small></>}/></List.Item>}/></Card>
 }
 
 export function MembersPage({organizationId}:{organizationId:number}){
- return <div className="management-grid"><DataTable path={`/organizations/${organizationId}/members`} rowKey="member_id" columns={[[ 'full_name','Họ tên'],['email','Email'],['phone','Điện thoại'],['roles','Vai trò'],['status','Trạng thái'],['joined_at','Ngày tham gia']]}/><ActionForm title="Mời thành viên" path={`/organizations/${organizationId}/invitations`} fields={[{name:'email',label:'Email',type:'text'},{name:'roleCode',label:'Vai trò',type:'select',options:[{value:'RESTAURANT_MANAGER',label:'Quản lý nhà hàng'},{value:'RESTAURANT_PURCHASER',label:'Thu mua'},{value:'RESTAURANT_RECEIVER',label:'Nhận hàng'},{value:'SUPPLIER_MANAGER',label:'Quản lý nhà cung cấp'},{value:'SUPPLIER_STAFF',label:'Nhân viên nhà cung cấp'}]}]}/></div>
+ const {membership}=useAuth();const [selected,setSelected]=useState<Row>();const [link,setLink]=useState('');const [error,setError]=useState('');const client=useQueryClient()
+ const prefix=membership?.organizationType==='RESTAURANT'?'RESTAURANT_':'SUPPLIER_';const roles=Object.entries(roleNames).filter(([r])=>r.startsWith(prefix)).map(([value,label])=>({value,label}))
+ const invitations=useRows('/organizations/'+organizationId+'/invitations')
+ const receive=(result:unknown)=>{const r=result as {token:string};setLink(window.location.origin+'/accept-invitation#token='+r.token)}
+ async function revoke(id:unknown){try{await api('/organizations/'+organizationId+'/invitations/'+id,'DELETE');await invitations.refetch()}catch(e){setError((e as Error).message)}}
+ return <>{error&&<Alert type="error" message={error}/>}<DataTable path={'/organizations/'+organizationId+'/members'} rowKey="member_id" columns={[[ 'full_name','Họ tên'],['email','Email'],['roles','Vai trò'],['status','Trạng thái']]} actions={r=><Button onClick={()=>setSelected(r)}>Quản lý quyền</Button>}/>
+ {selected&&<><ActionForm key={String(selected.member_id)} title={'Quyền của '+selected.full_name} method="PUT" path={'/organizations/'+organizationId+'/members/'+selected.member_id+'/roles'} fields={[{name:'roles',label:'Vai trò',type:'multiple',options:roles,initial:String(selected.roles).split(',')}]} /><Button danger onClick={async()=>{if(!window.confirm('Vô hiệu hóa thành viên này?'))return;try{await api('/organizations/'+organizationId+'/members/'+selected.member_id,'DELETE');setSelected(undefined);await client.invalidateQueries()}catch(e){setError((e as Error).message)}}}>Vô hiệu hóa thành viên</Button></>}
+ <ActionForm title="Mời thành viên" path={'/organizations/'+organizationId+'/invitations'} fields={[{name:'email',label:'Email'},{name:'roleCode',label:'Vai trò',type:'select',options:roles}]} onDone={receive}/>
+ {link&&<Alert type="success" message="Đã tạo lời mời" description={<><p>Liên kết chỉ hiển thị lần này. Sao chép và gửi riêng cho người được mời; có hiệu lực 7 ngày.</p><a href={link}>{link}</a></>}/>}
+ <List dataSource={invitations.data??[]} renderItem={r=><List.Item actions={r.status==='PENDING'?[<Button key="revoke" onClick={()=>void revoke(r.invitation_id)}>Thu hồi</Button>,<Button key="resend" onClick={async()=>{try{receive(await api('/organizations/'+organizationId+'/invitations','POST',{email:r.email,roleCode:r.role_code}));await invitations.refetch()}catch(e){setError((e as Error).message)}}}>Tạo lại liên kết</Button>]:[]}><List.Item.Meta title={String(r.email)} description={String(r.status)+' · '+String(r.expires_at)}/></List.Item>}/></>
 }
 
 export function AnalyticsPage(){

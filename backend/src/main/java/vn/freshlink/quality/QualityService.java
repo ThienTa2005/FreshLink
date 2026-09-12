@@ -19,7 +19,7 @@ public class QualityService {
             var item=jdbc.queryForMap("SELECT i.*,r.supplier_id FROM supply_request_items i JOIN supply_requests r ON r.supply_request_id=i.supply_request_id WHERE i.supply_request_item_id=? FOR UPDATE",r.requestItemId());
             actor.requireOrganization(((Number)item.get("supplier_id")).longValue(),"SUPPLIER_MANAGER","SUPPLIER_STAFF");
             if(!Set.of("ACCEPTED","PARTIALLY_ACCEPTED").contains(item.get("status"))) throw new IllegalArgumentException("Cần xác nhận cung ứng trước khi tạo lô");
-            BigDecimal declared=jdbc.queryForObject("SELECT COALESCE(SUM(declared_quantity),0) FROM batches WHERE supply_request_item_id=?",BigDecimal.class,r.requestItemId());
+            BigDecimal declared=jdbc.queryForObject("SELECT COALESCE(SUM(declared_quantity),0) FROM batches WHERE supply_request_item_id=? AND batch_status<>'CLOSED'",BigDecimal.class,r.requestItemId());
             if(declared.add(r.quantity()).compareTo((BigDecimal)item.get("accepted_quantity"))>0) throw new IllegalArgumentException("Tổng lô vượt lượng cung ứng đã chốt");
             return sql.insert("INSERT INTO batches(batch_code,supplier_id,sku_id,supply_request_item_id,declared_quantity,trace_note,created_by) VALUES (?,?,?,?,?,?,?)","LO-"+UUID.randomUUID(),item.get("supplier_id"),item.get("sku_id"),r.requestItemId(),r.quantity(),r.origin(),actor.userId());
         });
@@ -37,7 +37,7 @@ public class QualityService {
             var batch=jdbc.queryForMap("SELECT * FROM batches WHERE batch_id=? FOR UPDATE",id);
             if(!batch.get("batch_status").equals("CREATED")) throw new IllegalArgumentException("Lô đã được kiểm nhận; cần quy trình kiểm tra lại riêng");
             BigDecimal received=r.accepted().add(r.review()).add(r.rejected());
-            if(received.compareTo((BigDecimal)batch.get("declared_quantity"))>0) throw new IllegalArgumentException("Lượng nhận vượt lượng khai báo");
+            if(received.compareTo((BigDecimal)batch.get("declared_quantity"))!=0) throw new IllegalArgumentException("Tổng đạt, giữ lại và từ chối phải bằng lượng khai báo; tính cả lượng thiếu vào lượng từ chối");
             String state=r.accepted().signum()>0?(r.accepted().compareTo(received)==0?"ACCEPTED":"PARTIALLY_ACCEPTED"):(r.review().signum()>0?"QUARANTINED":"REJECTED");
             String result=r.accepted().signum()>0?(r.accepted().compareTo(received)==0?"PASS":"PARTIAL_PASS"):(r.review().signum()>0?"QUARANTINE":"FAIL");
             jdbc.update("UPDATE batches SET received_quantity=?,accepted_quantity=?,review_quantity=?,rejected_quantity=?,batch_status=?,received_at=UTC_TIMESTAMP(3) WHERE batch_id=?",received,r.accepted(),r.review(),r.rejected(),state,id);
@@ -47,12 +47,11 @@ public class QualityService {
                 jdbc.update("INSERT INTO inspection_items(inspection_id,criterion_code,criterion_name,result,evidence_file_id) VALUES (?,?,?,?,?)",inspection,entry.getKey(),entry.getKey(),entry.getValue(),r.evidenceId());
             }
             // One supply line belongs to one order line in the MVP. Release unavailable units for replacement sourcing.
-            BigDecimal lost=((BigDecimal)batch.get("declared_quantity")).subtract(r.accepted());
+            BigDecimal lost=r.rejected();
             var links=jdbc.queryForList("SELECT order_item_id,planned_quantity FROM supply_request_item_orders WHERE supply_request_item_id=? FOR UPDATE",batch.get("supply_request_item_id"));
             if(!links.isEmpty() && lost.signum()>0) {
                 BigDecimal remaining=((BigDecimal)links.get(0).get("planned_quantity")).subtract(lost);
-                if(remaining.signum()>0) jdbc.update("UPDATE supply_request_item_orders SET planned_quantity=? WHERE supply_request_item_id=?",remaining,batch.get("supply_request_item_id"));
-                else jdbc.update("DELETE FROM supply_request_item_orders WHERE supply_request_item_id=?",batch.get("supply_request_item_id"));
+                jdbc.update("UPDATE supply_request_item_orders SET planned_quantity=? WHERE supply_request_item_id=?",remaining.max(BigDecimal.ZERO),batch.get("supply_request_item_id"));
             }
             return inspection;
         });

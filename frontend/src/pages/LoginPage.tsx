@@ -31,7 +31,7 @@ export default function LoginPage() {
         <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}><Input autoComplete="username" size="large" /></Form.Item>
         <Form.Item name="password" label="Mật khẩu" rules={[{ required: true }]}><Input.Password autoComplete="current-password" size="large" /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy} block size="large">Đăng nhập</Button>
-      </Form><Link to="/register">Đăng ký hợp tác</Link><Link to="/">← Trang chủ</Link>
+      </Form><Link to="/forgot-password">Quên mật khẩu</Link><Link to="/registration-status">Theo dõi đăng ký</Link><Link to="/register">Đăng ký hợp tác</Link><Link to="/">← Trang chủ</Link>
     </div></section>
   </main>
 }

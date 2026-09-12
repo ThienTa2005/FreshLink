@@ -21,7 +21,7 @@ public class AssetController {
     }
     @GetMapping public ApiResponse<?> list(@AuthenticationPrincipal Actor a,@RequestParam(required=false) Long restaurantId) {
         if(restaurantId!=null) {a.requireOrganization(restaurantId,"RESTAURANT_MANAGER","RESTAURANT_RECEIVER");return ApiResponse.success(jdbc.queryForList("SELECT asset_id,asset_code,status,condition_status FROM returnable_assets WHERE current_organization_id=?",restaurantId),"Thùng đang giữ");}
-        a.requireRole("OPERATIONS_COORDINATOR");return ApiResponse.success(jdbc.queryForList("SELECT * FROM returnable_assets ORDER BY asset_id DESC LIMIT 200"),"Thùng luân chuyển");
+        a.requireRole("OPERATIONS_COORDINATOR","DRIVER");return ApiResponse.success(jdbc.queryForList("SELECT * FROM returnable_assets ORDER BY asset_id DESC LIMIT 200"),"Thùng luân chuyển");
     }
     public record Move(@NotBlank String action,Long stopId,@NotBlank @Size(max=500) String note) {}
     @PostMapping("/{id}/move") @Transactional public ApiResponse<?> move(@AuthenticationPrincipal Actor a,@PathVariable long id,@Valid @RequestBody Move r) {

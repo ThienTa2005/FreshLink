@@ -41,7 +41,7 @@ class MvpIntegrationTest {
     @MockitoBean MediaStorage mediaStorage;
     @BeforeEach void mockMediaStorage() {
         org.mockito.Mockito.when(mediaStorage.upload(org.mockito.ArgumentMatchers.any(byte[].class),org.mockito.ArgumentMatchers.anyString()))
-            .thenAnswer(call -> new MediaStorage.Stored("test-asset",call.getArgument(1),"raw","authenticated","pdf",1,
+            .thenAnswer(call -> new MediaStorage.Stored(UUID.randomUUID().toString(),call.getArgument(1),"raw","authenticated","pdf",1,
                 ((byte[])call.getArgument(0)).length));
     }
     BigDecimal q(String value) {return new BigDecimal(value);}

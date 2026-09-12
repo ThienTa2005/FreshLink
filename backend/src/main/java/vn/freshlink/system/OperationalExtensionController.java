@@ -26,8 +26,14 @@ public class OperationalExtensionController {
             out.addAll(jdbc.queryForList("SELECT 'BATCH' type,batch_id id,batch_code code,CONCAT('Lô ',batch_code) title,batch_status status FROM batches WHERE batch_code LIKE ? ESCAPE '\\\\' ORDER BY batch_id DESC LIMIT 8",term));
             out.addAll(jdbc.queryForList("SELECT 'TRIP' type,trip_id id,trip_code code,CONCAT('Chuyến ',trip_code) title,status FROM delivery_trips WHERE trip_code LIKE ? ESCAPE '\\\\' ORDER BY trip_id DESC LIMIT 8",term));
             out.addAll(jdbc.queryForList("SELECT 'ORGANIZATION' type,organization_id id,organization_code code,organization_name title,status FROM organizations WHERE organization_name LIKE ? ESCAPE '\\\\' OR organization_code LIKE ? ESCAPE '\\\\' ORDER BY organization_id DESC LIMIT 8",term,term));
+            out.addAll(jdbc.queryForList("SELECT 'COMPLAINT' type,complaint_id id,complaint_code code,CONCAT('Khiếu nại ',complaint_code) title,status FROM complaints WHERE complaint_code LIKE ? ESCAPE '\\\\' ORDER BY complaint_id DESC LIMIT 8",term));
+        } else if(a.hasRole("DRIVER")){
+            out.addAll(jdbc.queryForList("SELECT 'TRIP' type,trip_id id,trip_code code,CONCAT('Chuyến ',trip_code) title,status FROM delivery_trips WHERE driver_user_id=? AND trip_code LIKE ? ESCAPE '\\\\' ORDER BY trip_id DESC LIMIT 8",a.userId(),term));
         } else for(var m:a.memberships()){
-            if("RESTAURANT".equals(m.organizationType())) out.addAll(jdbc.queryForList("SELECT 'ORDER' type,order_id id,order_code code,CONCAT('Đơn ',order_code) title,order_status status FROM customer_orders WHERE restaurant_id=? AND order_code LIKE ? ESCAPE '\\\\' ORDER BY order_id DESC LIMIT 8",m.organizationId(),term));
+            if("RESTAURANT".equals(m.organizationType())){
+                out.addAll(jdbc.queryForList("SELECT 'ORDER' type,order_id id,order_code code,CONCAT('Đơn ',order_code) title,order_status status FROM customer_orders WHERE restaurant_id=? AND order_code LIKE ? ESCAPE '\\\\' ORDER BY order_id DESC LIMIT 8",m.organizationId(),term));
+                out.addAll(jdbc.queryForList("SELECT 'COMPLAINT' type,complaint_id id,complaint_code code,CONCAT('Khiếu nại ',complaint_code) title,status FROM complaints WHERE restaurant_id=? AND complaint_code LIKE ? ESCAPE '\\\\' ORDER BY complaint_id DESC LIMIT 8",m.organizationId(),term));
+            }
             if("SUPPLIER".equals(m.organizationType())) out.addAll(jdbc.queryForList("SELECT 'BATCH' type,batch_id id,batch_code code,CONCAT('Lô ',batch_code) title,batch_status status FROM batches WHERE supplier_id=? AND batch_code LIKE ? ESCAPE '\\\\' ORDER BY batch_id DESC LIMIT 8",m.organizationId(),term));
         }
         return ApiResponse.success(out.stream().limit(25).toList(),"Kết quả tìm kiếm");

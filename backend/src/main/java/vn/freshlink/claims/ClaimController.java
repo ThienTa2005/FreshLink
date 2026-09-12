@@ -14,16 +14,17 @@ import vn.freshlink.common.api.ApiResponse;
 
 @RestController @RequestMapping("/api/claims")
 public class ClaimController {
-    private final JdbcTemplate jdbc;private final Sql sql;private final Idempotency dedup;
-    public ClaimController(JdbcTemplate jdbc,Sql sql,Idempotency dedup) {this.jdbc=jdbc;this.sql=sql;this.dedup=dedup;}
-    public record Claim(@NotNull Long orderItemId,@NotNull Long batchId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotBlank @Size(max=2000) String description) {}
+    private final JdbcTemplate jdbc;private final Sql sql;private final Idempotency dedup;private final MediaController media;
+    public ClaimController(JdbcTemplate jdbc,Sql sql,Idempotency dedup,MediaController media) {this.jdbc=jdbc;this.sql=sql;this.dedup=dedup;this.media=media;}
+    public record Claim(@NotNull Long orderItemId,@NotNull Long batchId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotBlank @Size(max=2000) String description,Long evidenceId) {}
     @PostMapping @Transactional public ApiResponse<?> create(@AuthenticationPrincipal Actor a,@Valid @RequestBody Claim r,@RequestHeader("Idempotency-Key") String key) {
         long id=dedup.execute(a.userId(),key,"CLAIM",r.toString(),()->{
+            media.requireOwned(a,r.evidenceId());
             var row=jdbc.queryForMap("SELECT i.order_id,o.restaurant_id,ba.allocated_quantity FROM order_items i JOIN customer_orders o ON o.order_id=i.order_id JOIN batch_allocations ba ON ba.order_item_id=i.order_item_id WHERE i.order_item_id=? AND ba.batch_id=?",r.orderItemId(),r.batchId());
             a.requireOrganization(((Number)row.get("restaurant_id")).longValue(),"RESTAURANT_MANAGER","RESTAURANT_RECEIVER");
             if(r.quantity().compareTo((BigDecimal)row.get("allocated_quantity"))>0) throw new IllegalArgumentException("Lượng khiếu nại vượt lượng từ lô đã cấp");
             long claim=sql.insert("INSERT INTO complaints(complaint_code,order_id,restaurant_id,complaint_type,description,requested_resolution,submitted_by) VALUES (?,?,?,'QUALITY',?,'OTHER',?)","CL-"+UUID.randomUUID().toString().substring(0,24),row.get("order_id"),row.get("restaurant_id"),r.description(),a.userId());
-            jdbc.update("INSERT INTO complaint_items(complaint_id,order_item_id,batch_id,affected_quantity) VALUES (?,?,?,?)",claim,r.orderItemId(),r.batchId(),r.quantity());return claim;
+            jdbc.update("INSERT INTO complaint_items(complaint_id,order_item_id,batch_id,affected_quantity,evidence_file_id) VALUES (?,?,?,?,?)",claim,r.orderItemId(),r.batchId(),r.quantity(),r.evidenceId());return claim;
         });return ApiResponse.success(id,"Đã gửi khiếu nại");
     }
     @GetMapping public ApiResponse<?> list(@AuthenticationPrincipal Actor a,@RequestParam(required=false) Long restaurantId) {

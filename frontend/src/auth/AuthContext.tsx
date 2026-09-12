@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError, api, setToken, warmBackend } from '../api/http'
+import { ApiError, api, setToken, setOrganization, warmBackend } from '../api/http'
 
 export type Membership = { organizationId: number; organizationName: string; organizationType: string; roles: string[] }
 export type Actor = { userId: number; email: string; fullName: string; memberships: Membership[] }
@@ -8,6 +8,8 @@ export type AuthStatus = 'initializing' | 'anonymous' | 'authenticated' | 'unava
 type StoredSession = { token: string; expiresAt: string }
 type Auth = {
   user: Actor | null
+  membership: Membership | null
+  selectWorkspace: (id: number) => void
   status: AuthStatus
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -38,11 +40,14 @@ function readSession(): StoredSession | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Actor | null>(null)
   const [status, setStatus] = useState<AuthStatus>('initializing')
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null)
   const client = useQueryClient()
   const initialized = useRef(false)
 
   const discardSession = useCallback(() => {
     setToken(null)
+    setOrganization(null)
+    setWorkspaceId(null)
     sessionStorage.removeItem(SESSION_KEY)
     setUser(null)
     setStatus('anonymous')
@@ -56,6 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('initializing')
     try {
       const actor = await api<Actor>('/auth/me')
+      const saved = Number(sessionStorage.getItem(`freshlink:workspace:${actor.userId}`))
+      const id = actor.memberships.find(m => m.organizationId === saved)?.organizationId ?? actor.memberships[0]?.organizationId ?? null
+      setOrganization(id); setWorkspaceId(id)
       setUser(actor)
       setStatus('authenticated')
     } catch (error) {
@@ -75,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await warmBackend()
     const result = await api<{ token: string; expiresAt: string; user: Actor }>('/public/auth/login', 'POST', { email, password })
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: result.token, expiresAt: result.expiresAt }))
+    const id = result.user.memberships[0]?.organizationId ?? null
+    if (id != null) sessionStorage.setItem(`freshlink:workspace:${result.user.userId}`, String(id))
+    setOrganization(id); setWorkspaceId(id)
     client.clear(); setToken(result.token); setUser(result.user); setStatus('authenticated')
   }
 
@@ -87,7 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api<Actor>('/auth/me'))
   }
 
-  return <Context.Provider value={{ user, status, login, logout, refresh, retrySession: restoreSession, discardSession }}>{children}</Context.Provider>
+  const membership = user?.memberships.find(m => m.organizationId === workspaceId) ?? null
+  function selectWorkspace(id: number) {
+    if (!user?.memberships.some(m => m.organizationId === id)) return
+    void client.cancelQueries(); client.clear(); setOrganization(id); setWorkspaceId(id)
+    sessionStorage.setItem(`freshlink:workspace:${user.userId}`, String(id))
+  }
+  return <Context.Provider value={{ user, membership, selectWorkspace, status, login, logout, refresh, retrySession: restoreSession, discardSession }}>{children}</Context.Provider>
 }
 
 export function useAuth() {

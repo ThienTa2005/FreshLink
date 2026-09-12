@@ -64,7 +64,7 @@ public class DeliveryService {
         jdbc.update("UPDATE batch_allocations a JOIN delivery_items d ON d.batch_allocation_id=a.batch_allocation_id JOIN trip_stops s ON s.trip_stop_id=d.trip_stop_id SET a.allocation_status='LOADED' WHERE s.trip_id=?",id);
     }
     public record Quantity(@NotNull Long deliveryItemId,@NotNull @DecimalMin("0") @Digits(integer=9,fraction=3) BigDecimal quantity) {}
-    public record Proof(@NotBlank @Size(max=150) String receiver,@NotBlank @Size(max=500) String note,@NotEmpty @Size(max=200) List<@NotNull @Valid Quantity> items,Long evidenceId) {
+    public record Proof(@NotBlank @Size(max=150) String receiver,@Size(max=500) String note,@NotEmpty @Size(max=200) List<@NotNull @Valid Quantity> items,Long evidenceId) {
         public Proof(String receiver,String note,List<Quantity> items) {this(receiver,note,items,null);}
     }
     @Transactional public long confirm(Actor actor,long stopId,Proof r,String key,boolean restaurant) {
@@ -83,13 +83,20 @@ public class DeliveryService {
             for(Quantity q:r.items()) if(quantities.put(q.deliveryItemId(),q.quantity())!=null) throw new IllegalArgumentException("Dòng giao bị trùng");
             if(quantities.size()!=items.size()) throw new IllegalArgumentException("Phải khai báo đủ các dòng giao");
             BigDecimal total=BigDecimal.ZERO,loaded=BigDecimal.ZERO;
+            boolean discrepancy=false;
             for(var item:items) {
                 BigDecimal q=quantities.get(((Number)item.get("delivery_item_id")).longValue());
                 if(q==null || q.compareTo((BigDecimal)item.get("loaded_quantity"))>0) throw new IllegalArgumentException("Lượng giao/nhận vượt lượng xuất hoặc sai dòng hàng");
+                BigDecimal expected=(BigDecimal)item.get(restaurant?"delivered_quantity":"loaded_quantity");
+                if(q.compareTo(expected==null?BigDecimal.ZERO:expected)!=0)discrepancy=true;
                 jdbc.update(restaurant?"UPDATE delivery_items SET received_quantity=? WHERE delivery_item_id=?":"UPDATE delivery_items SET delivered_quantity=? WHERE delivery_item_id=?",q,item.get("delivery_item_id"));
                 total=total.add(q);loaded=loaded.add((BigDecimal)item.get("loaded_quantity"));
             }
-            if(restaurant) jdbc.update("UPDATE trip_stops SET restaurant_confirmed_at=UTC_TIMESTAMP(3) WHERE trip_stop_id=?",stopId);
+            if(discrepancy&&(r.note()==null||r.note().isBlank()))throw new IllegalArgumentException("Cần ghi lý do khi số lượng giao/nhận có sai lệch");
+            if(restaurant) {
+                jdbc.update("UPDATE trip_stops SET restaurant_confirmed_at=UTC_TIMESTAMP(3) WHERE trip_stop_id=?",stopId);
+                if(discrepancy)jdbc.update("INSERT INTO notifications(user_id,notification_type,title,message,related_entity_type,related_entity_id) SELECT DISTINCT m.user_id,'RECEIPT_MISMATCH','Cần xác minh chênh lệch nhận hàng',?,'ORDER',? FROM organization_members m JOIN member_roles mr ON mr.member_id=m.member_id JOIN roles ro ON ro.role_id=mr.role_id WHERE m.status='ACTIVE' AND ro.role_code IN ('CUSTOMER_SUPPORT','OPERATIONS_COORDINATOR')",r.note(),stop.get("order_id"));
+            }
             else {
                 String state=total.signum()==0?"FAILED":total.compareTo(loaded)==0?"DELIVERED":"PARTIALLY_DELIVERED";
                 jdbc.update("UPDATE trip_stops SET status=?,completed_at=UTC_TIMESTAMP(3),receiver_name=?,receiver_note=?,failure_reason=? WHERE trip_stop_id=?",state,r.receiver(),r.note(),state.equals("DELIVERED")?null:r.note(),stopId);

@@ -12,6 +12,8 @@ export class ApiError extends Error {
 }
 
 let token: string | null = null
+let organizationId: number | null = null
+export function setOrganization(id: number | null) { organizationId = id }
 let warmInFlight: Promise<void> | null = null
 let lastWarmAt = 0
 let sessionCheckInFlight: Promise<void> | null = null
@@ -38,7 +40,9 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): P
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    return await fetch(input, { ...init, signal: controller.signal })
+    const headers = new Headers(init?.headers)
+    if (organizationId != null && !String(input).includes('/public/')) headers.set('X-Organization-Id', String(organizationId))
+    return await fetch(input, { ...init, headers, signal: controller.signal })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError')
       throw new ApiError('Máy chủ khởi động quá lâu. Vui lòng thử lại.', 'timeout')

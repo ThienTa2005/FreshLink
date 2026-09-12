@@ -2,11 +2,12 @@ import { useRef, useState, type ReactNode } from 'react'
 import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, Typography } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, downloadEvidence, uploadEvidence } from '../api/http'
+import { display } from './permissions'
 
 export type Row = Record<string, unknown>
 export type Option = { value: string | number; label: string }
 export type Field = { name: string; label: string; type?: 'number' | 'date' | 'time' | 'text' | 'password' | 'file' | 'textarea' | 'select' | 'multiple'; options?: Option[]; initial?: unknown; required?: boolean; min?: number; max?: number }
-function EvidenceInput({ value, onChange }: { value?: number; onChange?: (value: number) => void }) {
+export function EvidenceInput({ value, onChange }: { value?: number; onChange?: (value: number) => void }) {
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   return <><Input type="file" accept="image/png,image/jpeg,application/pdf" disabled={busy} onChange={async e => {
     const file = e.target.files?.[0]; if (!file) return
@@ -29,10 +30,10 @@ export function DataTable({ path, columns, rowKey, actions }: { path: string; co
   const query = useRows(path)
   return <>{query.error && <Alert type="error" message={query.error.message} action={<Button onClick={() => void query.refetch()}>Thử lại</Button>} />}
     <Table<Row> rowKey={rowKey} loading={query.isPending} dataSource={query.data ?? []} scroll={{ x: 'max-content' }} pagination={{ pageSize: 10 }}
-      columns={[...columns.map(([key, title]) => ({ key, title, dataIndex: key, render: (value: unknown) => value == null ? '—' : String(value) })), ...(actions ? [{ key: 'actions', title: 'Thao tác', render: (_: unknown, row: Row) => actions(row) }] : [])]} />
+      locale={{emptyText:'Chưa có dữ liệu phù hợp'}} columns={[...columns.map(([key, title]) => ({ key, title, dataIndex: key, render: (value: unknown) => display(value,key) })), ...(actions ? [{ key: 'actions', title: 'Thao tác', render: (_: unknown, row: Row) => actions(row) }] : [])]} />
   </>
 }
-export function ActionForm({ title, fields, path, transform, onDone }: { title: string; fields: Field[]; path: string | ((values: Row) => string); transform?: (values: Row) => unknown; onDone?: (result: unknown) => void }) {
+export function ActionForm({ title, fields, path, transform, onDone, method='POST' }: { title: string; fields: Field[]; path: string | ((values: Row) => string); transform?: (values: Row) => unknown; onDone?: (result: unknown) => void; method?: string }) {
   const [form] = Form.useForm(); const client = useQueryClient()
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState(false)
   const request = useRef({ body: '', key: crypto.randomUUID() })
@@ -40,11 +41,12 @@ export function ActionForm({ title, fields, path, transform, onDone }: { title: 
     {error && <Alert type="error" message={error} showIcon />}{success && <Alert type="success" message="Đã lưu thành công" showIcon closable />}
     <Form form={form} layout="vertical" initialValues={Object.fromEntries(fields.map(f => [f.name, f.initial]))} onFinish={async (values: Row) => {
       setBusy(true); setError(''); setSuccess(false)
+      try {
       const url = typeof path === 'function' ? path(values) : path
       const body = transform ? transform(values) : values
       const fingerprint = url + JSON.stringify(body)
       if (request.current.body !== fingerprint) request.current = { body: fingerprint, key: crypto.randomUUID() }
-      try { const result = await api(url, 'POST', body, request.current.key); setSuccess(true); await client.invalidateQueries(); onDone?.(result) }
+      const result = await api(url, method, body, request.current.key); setSuccess(true); form.resetFields(); await client.invalidateQueries(); onDone?.(result); window.dispatchEvent(new Event('freshlink:saved')) }
       catch (e) { setError((e as Error).message) } finally { setBusy(false) }
     }}>
       <div className="form-grid">{fields.map(f => <Form.Item key={f.name} name={f.name} label={f.label} rules={[{ required: f.required !== false, message: `Vui lòng nhập ${f.label.toLowerCase()}` }]}>
@@ -59,4 +61,4 @@ export function QrButton({ type, id }: { type: string; id: unknown }) {
     {error && <Typography.Text type="danger">{error}</Typography.Text>}{label && <div className="qr-label"><img width={180} height={180} src={label.image} alt="Mã QR truy xuất" /><p><a href={label.url} target="_blank" rel="noreferrer">Mở truy xuất</a></p><Button onClick={() => window.print()}>In nhãn</Button></div>}
   </Space>
 }
-export function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 2); return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d) }
+export function tomorrow() { const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));const d=new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`);d.setUTCDate(d.getUTCDate()+(Number(p.hour)<17?1:2));return d.toISOString().slice(0,10) }

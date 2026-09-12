@@ -18,6 +18,6 @@ export default function RegisterPage() {
         <Form.Item name="password" label="Mật khẩu" rules={[{ required: true, min: 10, max: 72 }]}><Input.Password autoComplete="new-password" /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy}>Gửi đăng ký</Button>
       </Form></>}
-    <p><Link to="/login">Đến trang đăng nhập</Link></p>
+    <p><Link to="/registration-status">Theo dõi hồ sơ / yêu cầu bổ sung</Link> · <Link to="/login">Đến trang đăng nhập</Link></p>
   </Card></main>
 }

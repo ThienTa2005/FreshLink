@@ -22,8 +22,9 @@ public class OrderingService {
     public record Line(@NotNull Long skuId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity) {}
     public record Create(@NotNull Long restaurantId,@NotNull Long addressId,@NotNull LocalDate date,
         @NotNull LocalTime startTime,@NotNull LocalTime endTime,@Size(max=1000) String note,
-        @NotEmpty @Size(max=100) List<@NotNull @Valid Line> items,Long weeklyPlanId) {
-        public Create(Long restaurantId,Long addressId,LocalDate date,LocalTime startTime,LocalTime endTime,String note,List<Line> items) {this(restaurantId,addressId,date,startTime,endTime,note,items,null);}
+        @NotEmpty @Size(max=100) List<@NotNull @Valid Line> items,Long weeklyPlanId,Boolean draft) {
+        public Create(Long restaurantId,Long addressId,LocalDate date,LocalTime startTime,LocalTime endTime,String note,List<Line> items) {this(restaurantId,addressId,date,startTime,endTime,note,items,null,false);}
+        public Create(Long restaurantId,Long addressId,LocalDate date,LocalTime startTime,LocalTime endTime,String note,List<Line> items,Long plan) {this(restaurantId,addressId,date,startTime,endTime,note,items,plan,false);}
     }
     @Transactional public long create(Actor actor,Create request,String key) {
         actor.requireOrganization(request.restaurantId(),"RESTAURANT_MANAGER","RESTAURANT_PURCHASER");
@@ -59,16 +60,20 @@ public class OrderingService {
             subtotal=subtotal.add(total);
         }
         jdbc.update("UPDATE customer_orders SET subtotal_amount=?,total_amount=? WHERE order_id=?",subtotal,subtotal,id);
+        boolean requiresApproval = !actor.hasRole("SYSTEM_ADMIN") && actor.memberships().stream().noneMatch(m -> m.organizationId()==r.restaurantId() && m.roles().contains("RESTAURANT_MANAGER"))
+            && Boolean.TRUE.equals(jdbc.queryForObject("SELECT approval_required FROM restaurant_profiles WHERE restaurant_id=?",Boolean.class,r.restaurantId()));
+        String state = Boolean.TRUE.equals(r.draft()) ? "DRAFT" : requiresApproval ? "SUBMITTED" : "CONFIRMED";
+        jdbc.update("UPDATE customer_orders SET order_status=?,approval_required=?,approval_status=?,confirmed_at=IF(?='CONFIRMED',UTC_TIMESTAMP(3),NULL) WHERE order_id=?",state,requiresApproval,state.equals("SUBMITTED")?"PENDING":"NOT_REQUIRED",state,id);
         if(r.weeklyPlanId()!=null) {
             jdbc.update("UPDATE customer_orders SET weekly_plan_id=? WHERE order_id=?",r.weeklyPlanId(),id);
             jdbc.update("UPDATE weekly_plan_items p JOIN order_items i ON i.sku_id=p.sku_id AND i.order_id=? SET p.converted_order_item_id=i.order_item_id WHERE p.weekly_plan_id=? AND p.demand_date=?",id,r.weeklyPlanId(),r.date());
         }
-        jdbc.update("INSERT INTO order_status_history(order_id,new_status,changed_by,reason) VALUES (?,'CONFIRMED',?,'Nhà hàng xác nhận đơn ngày')",id,actor.userId());
+        jdbc.update("INSERT INTO order_status_history(order_id,new_status,changed_by,reason) VALUES (?,?,?,'Nhà hàng tạo đơn ngày')",id,state,actor.userId());
         return id;
     }
     public List<Map<String,Object>> list(Actor actor,long restaurantId) {
         actor.requireOrganization(restaurantId,"RESTAURANT_MANAGER","RESTAURANT_PURCHASER","RESTAURANT_RECEIVER");
-        return jdbc.queryForList("SELECT order_id,order_code,delivery_date,order_status,payment_status,total_amount FROM customer_orders WHERE restaurant_id=? ORDER BY delivery_date DESC,order_id DESC LIMIT 200",restaurantId);
+        return jdbc.queryForList("SELECT order_id,order_code,delivery_date,order_status,approval_status,payment_status,total_amount FROM customer_orders WHERE restaurant_id=? ORDER BY delivery_date DESC,order_id DESC LIMIT 200",restaurantId);
     }
     public Map<String,Object> detail(Actor actor,long id) {
         var rows=jdbc.queryForList("SELECT * FROM customer_orders WHERE order_id=?",id);
@@ -81,6 +86,8 @@ public class OrderingService {
         var stops=jdbc.queryForList("SELECT trip_stop_id,status,restaurant_confirmed_at FROM trip_stops WHERE order_id=? ORDER BY trip_stop_id",id);
         for(var stop:stops) stop.put("items",jdbc.queryForList("SELECT d.*,s.sku_name FROM delivery_items d JOIN order_items i ON i.order_item_id=d.order_item_id JOIN product_skus s ON s.sku_id=i.sku_id WHERE d.trip_stop_id=?",stop.get("trip_stop_id")));
         order.put("stops",stops);
+        order.put("history",jdbc.queryForList("SELECT h.*,u.full_name FROM order_status_history h LEFT JOIN users u ON u.user_id=h.changed_by WHERE order_id=? ORDER BY h.order_status_history_id",id));
+        order.put("cutoffAt",LocalDate.parse(order.get("delivery_date").toString()).minusDays(1).atTime(cutoff).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());
         return order;
     }
 }

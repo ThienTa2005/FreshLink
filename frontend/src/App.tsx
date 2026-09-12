@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import PortalPage from './pages/PortalPage'
 import TracePage from './pages/TracePage'
+import AccessPage from './pages/AccessPage'
 import { useAuth } from './auth/AuthContext'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {['/accept-invitation','/reset-password','/forgot-password','/registration-status'].map(path=><Route key={path} path={path} element={<AccessPage/>}/>)}
       <Route path="/portal/*" element={<PortalPage />} />
       <Route path="/trace/:code" element={<TracePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
