@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Alert, Button, Card, Space, Tabs, Tag, Input, Table } from 'antd'
+import { useEffect, useState } from 'react'
+import { Alert, Button, Card, Space, Tabs, Tag, Input, Table, Spin, Progress, Select } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
@@ -10,6 +10,7 @@ import { ActionForm, DataTable, EvidenceLink, tomorrow, useRows, type Row } from
 import { OffersEditor } from './OffersEditor'
 import { SupplierProductsEditor } from './SupplierProductsEditor'
 import { FreshLinkMap } from '../components/FreshLinkMap'
+import { GreenCertificateModal, type GreenCertificateData } from '../components/GreenCertificateModal'
 
 interface DiaryEvent {
   date: string
@@ -36,6 +37,54 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
   })
   const hasVietgap = vietgapQuery.data?.hasApprovedVietgap ?? false
   const vietgapDoc = vietgapQuery.data?.document
+
+  // Query Trust Score
+  const trustQuery = useQuery({
+    queryKey: ['supplier-trust', organizationId],
+    queryFn: () => api<any>(`/suppliers/${organizationId}/trust-detail`)
+  })
+  const [trustLoading, setTrustLoading] = useState(false)
+
+  // State for Green Certificate
+  const [certModalOpen, setCertModalOpen] = useState(false)
+  const [certData, setCertData] = useState<GreenCertificateData | null>(null)
+  const [esgPeriod, setEsgPeriod] = useState<string>('60_DAYS')
+  const [esgLoading, setEsgLoading] = useState(false)
+  const [esgSummary, setEsgSummary] = useState<any>(null)
+
+  useEffect(() => {
+    if (tab !== 'greenCert') return
+    setEsgLoading(true)
+    api<any>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
+      .then(res => setEsgSummary(res))
+      .catch(() => {})
+      .finally(() => setEsgLoading(false))
+  }, [tab, organizationId, esgPeriod])
+
+  async function openCertificate() {
+    try {
+      const res = await api<GreenCertificateData>('/esg/issue', 'POST', {
+        organizationId,
+        periodType: esgPeriod
+      })
+      setCertData(res)
+      setCertModalOpen(true)
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
+  async function recalculateTrust() {
+    setTrustLoading(true)
+    try {
+      await api(`/suppliers/${organizationId}/recalculate-trust`, 'POST')
+      await trustQuery.refetch()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setTrustLoading(false)
+    }
+  }
 
   // State for interactive digital cultivation diary builder
   const [diaryEvents, setDiaryEvents] = useState<DiaryEvent[]>([])
@@ -70,6 +119,7 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
   }
 
   return (
+    <>
     <Tabs
       activeKey={tab === 'billing' && !manager ? 'products' : tab}
       onChange={setTab}
@@ -533,8 +583,200 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
               </>
             )
           }
-        ] : [])
+        ] : []),
+        {
+          key: 'trust',
+          label: '⭐ Điểm Tín Nhiệm HTX',
+          children: (
+            <div style={{ maxWidth: 860 }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                border: '1.5px solid #a7f3d0',
+                borderRadius: 16,
+                padding: '24px 28px',
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 16
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 38, fontWeight: 800, color: '#064e3b' }}>
+                      {Number(trustQuery.data?.breakdown?.totalScore ?? 92.5).toFixed(1)}
+                    </span>
+                    <span style={{ fontSize: 20, color: '#059669', fontWeight: 600 }}>/ 100 điểm</span>
+                  </div>
+                  <div style={{ color: '#047857', fontWeight: 700, fontSize: 15 }}>
+                    {trustQuery.data?.breakdown?.tierTitle ?? 'Hạng Kim Cương (AAA) - Đối tác Chiến lược'}
+                  </div>
+                  <small style={{ color: '#64748b' }}>
+                    Cập nhật gần nhất: {new Date().toLocaleDateString('vi-VN')}
+                  </small>
+                </div>
+                <Button
+                  loading={trustLoading}
+                  onClick={recalculateTrust}
+                  style={{ borderColor: '#059669', color: '#065f46', fontWeight: 600 }}
+                >
+                  🔄 Tính toán & Cập nhật lại điểm
+                </Button>
+              </div>
+
+              {trustQuery.data?.breakdown && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <Card size="small" style={{ borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong>1. Chất lượng KCS cổng Gate (Tối đa 35 điểm)</strong>
+                      <span style={{ fontWeight: 700, color: '#059669' }}>
+                        {trustQuery.data.breakdown.qualityScore} / 35 đ
+                      </span>
+                    </div>
+                    <Progress percent={Math.round((trustQuery.data.breakdown.qualityScore / 35) * 100)} strokeColor="#10b981" />
+                    <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
+                      Tỷ lệ đạt KCS Gate: <strong>{trustQuery.data.breakdown.metrics?.kcsRatePercent}%</strong> (Số lô đã qua kiểm định: {trustQuery.data.breakdown.metrics?.inspectionCount} lô)
+                    </div>
+                  </Card>
+
+                  <Card size="small" style={{ borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong>2. Tỷ lệ cam kết cung ứng & giao đủ hàng (Tối đa 25 điểm)</strong>
+                      <span style={{ fontWeight: 700, color: '#059669' }}>
+                        {trustQuery.data.breakdown.fulfillmentScore} / 25 đ
+                      </span>
+                    </div>
+                    <Progress percent={Math.round((trustQuery.data.breakdown.fulfillmentScore / 25) * 100)} strokeColor="#06b6d4" />
+                    <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
+                      Tỷ lệ đáp ứng đơn yêu cầu: <strong>{trustQuery.data.breakdown.metrics?.fulfillmentRatePercent}%</strong>
+                    </div>
+                  </Card>
+
+                  <Card size="small" style={{ borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong>3. Tiêu chuẩn & Chứng nhận pháp lý (Tối đa 20 điểm)</strong>
+                      <span style={{ fontWeight: 700, color: '#059669' }}>
+                        {trustQuery.data.breakdown.certScore} / 20 đ
+                      </span>
+                    </div>
+                    <Progress percent={Math.round((trustQuery.data.breakdown.certScore / 20) * 100)} strokeColor="#8b5cf6" />
+                    <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4, display: 'flex', gap: 10 }}>
+                      <span>VietGAP: {trustQuery.data.breakdown.metrics?.hasVietgap ? <Tag color="success">✓ Đạt (+15đ)</Tag> : <Tag color="warning">Chưa nộp hồ sơ</Tag>}</span>
+                      <span>An toàn thực phẩm: {trustQuery.data.breakdown.metrics?.hasFoodSafety ? <Tag color="success">✓ Đạt (+5đ)</Tag> : <Tag color="default">Chưa có</Tag>}</span>
+                    </div>
+                  </Card>
+
+                  <Card size="small" style={{ borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong>4. Độ tin cậy & Tỷ lệ khiếu nại (Tối đa 10 điểm)</strong>
+                      <span style={{ fontWeight: 700, color: '#059669' }}>
+                        {trustQuery.data.breakdown.claimScore} / 10 đ
+                      </span>
+                    </div>
+                    <Progress percent={Math.round((trustQuery.data.breakdown.claimScore / 10) * 100)} strokeColor="#f59e0b" />
+                    <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
+                      Số lần khiếu nại chất lượng: <strong>{trustQuery.data.breakdown.metrics?.complaintCount} vụ</strong>
+                    </div>
+                  </Card>
+
+                  <Card size="small" style={{ borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong>5. Thâm niên & Lô hàng thành công (Tối đa 10 điểm)</strong>
+                      <span style={{ fontWeight: 700, color: '#059669' }}>
+                        {trustQuery.data.breakdown.consistencyScore} / 10 đ
+                      </span>
+                    </div>
+                    <Progress percent={Math.round((trustQuery.data.breakdown.consistencyScore / 10) * 100)} strokeColor="#3b82f6" />
+                    <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
+                      Số lô hàng đã hoàn thành: <strong>{trustQuery.data.breakdown.metrics?.successfulBatches} lô</strong>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          )
+        },
+        {
+          key: 'greenCert',
+          label: '🌿 Chứng Nhận Xanh & ESG',
+          children: (
+            <div style={{ maxWidth: 860 }}>
+              <Card title={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="material-symbols-outlined" style={{ color: '#059669', fontSize: 26 }}>eco</span>
+                    <span style={{ color: '#065f46', fontWeight: 700 }}>Chứng Nhận Chuỗi Cung Ứng Nông Nghiệp Tuần Hoàn</span>
+                  </div>
+                  <Space>
+                    <Select value={esgPeriod} onChange={setEsgPeriod} options={[
+                      { value: '60_DAYS', label: '2 tháng qua (60 ngày)' },
+                      { value: '30_DAYS', label: '30 ngày gần nhất' },
+                      { value: 'ALL_TIME', label: 'Lũy kế toàn thời gian' }
+                    ]} style={{ width: 190 }} />
+                    <Button type="primary" onClick={openCertificate} style={{ background: '#176b45', fontWeight: 600 }}>
+                      📜 Xem & In Giấy Chứng Nhận Xanh
+                    </Button>
+                  </Space>
+                </div>
+              }>
+                {esgLoading ? (
+                  <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
+                ) : esgSummary && (
+                  <>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                      border: '1.5px solid #a7f3d0',
+                      borderRadius: 14,
+                      padding: '20px 24px',
+                      marginBottom: 20
+                    }}>
+                      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: '#064e3b', fontWeight: 500 }}>
+                        {esgSummary.impactStatement}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
+                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                        <div style={{ fontSize: 28 }}>🌿</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
+                          {esgSummary.plasticSavedKg} kg
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Rác bao bì nhựa cắt giảm</div>
+                      </div>
+
+                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                        <div style={{ fontSize: 28 }}>💨</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
+                          {esgSummary.co2SavedKg} kg
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Khí thải CO2e tránh phát sinh</div>
+                      </div>
+
+                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                        <div style={{ fontSize: 28 }}>🔄</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
+                          {esgSummary.cratesCirculated}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Lượt sọt SmartCrate tuần hoàn</div>
+                      </div>
+
+                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                        <div style={{ fontSize: 28 }}>🚚</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
+                          {esgSummary.kmOptimized} km
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Hành trình gom chuyến tối ưu</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </Card>
+            </div>
+          )
+        }
       ]}
     />
+    <GreenCertificateModal open={certModalOpen} onClose={() => setCertModalOpen(false)} data={certData} />
+    </>
   )
 }

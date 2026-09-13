@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionForm, DataTable, EvidenceLink, QrButton, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import TripPage from './TripPage'
 import { AiTripOptimizerModal } from '../components/AiTripOptimizerModal'
+import { CoopTrustScoreModal } from '../components/CoopTrustScoreModal'
 
 export default function OperationsPage({ initialTab }: { initialTab?: string }) {
   const { membership } = useAuth(); const roles = membership?.roles ?? []
@@ -17,6 +18,9 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
   const [date, setDate] = useState(tomorrow()); const [error, setError] = useState(''); const client = useQueryClient()
   const [aiModalOpen, setAiModalOpen] = useState(false)
   const [selectedDockId, setSelectedDockId] = useState<number>()
+  const [trustModalOpen, setTrustModalOpen] = useState(false)
+  const [selectedTrustSupplierId, setSelectedTrustSupplierId] = useState<number>()
+  const [selectedTrustSupplierName, setSelectedTrustSupplierName] = useState<string>()
   const lookup = useQuery({ queryKey: ['lookup'], queryFn: () => api<{ organizations: Row[]; addresses: Row[]; drivers: Row[] }>('/operations/lookup') })
   const catalog = useRows(`/public/catalog?date=${date}`)
   const categories = useRows('/public/categories')
@@ -335,9 +339,83 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
           </>
         )
       }] : []),
+      ...(can('SYSTEM_ADMIN') || can('OPERATIONS_COORDINATOR') ? [{
+        key: 'coop_rankings',
+        label: 'Xếp Hạng Tín Nhiệm HTX',
+        children: (
+          <>
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1.5px solid #86efac',
+              borderRadius: 12,
+              padding: '16px 20px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12
+            }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#064e3b', fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#059669' }}>military_tech</span>
+                  Hệ Thống Đánh Giá & Xếp Hạng Tín Nhiệm Hợp Tác Xã (Coop Trust Score)
+                </h3>
+                <p style={{ margin: '4px 0 0', color: '#047857', fontSize: 13.5 }}>
+                  Thang điểm 100 tính toán tự động dựa trên 5 trụ cột: Tỷ lệ KCS Gate (35%), Cam kết cung ứng (25%), Chứng nhận VietGAP (20%), Khiếu nại (10%), Thâm niên (10%).
+                </p>
+              </div>
+              <Button
+                type="primary"
+                style={{ background: '#176b45', fontWeight: 600 }}
+                onClick={async () => {
+                  try {
+                    await api('/admin/suppliers/recalculate-trust', 'POST')
+                    await client.invalidateQueries()
+                  } catch (e) {
+                    setError((e as Error).message)
+                  }
+                }}
+              >
+                🔄 Tính toán lại toàn sàn
+              </Button>
+            </div>
+
+            <DataTable
+              path="/suppliers/trust-scores"
+              rowKey="supplier_id"
+              columns={[
+                ['rank', 'Thứ hạng'],
+                ['organization_name', 'Hợp tác xã / NCC'],
+                ['supplier_score', 'Tổng điểm (0-100)'],
+                ['tier_rank', 'Hạng danh hiệu'],
+                ['quality_score', 'Điểm KCS Gate (35đ)'],
+                ['fulfillment_score', 'Cam kết cung ứng (25đ)'],
+                ['cert_score', 'Chứng nhận (20đ)'],
+                ['has_approved_vietgap', 'VietGAP Quốc Gia']
+              ]}
+              actions={r => (
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  onClick={() => {
+                    setSelectedTrustSupplierId(Number(r.supplier_id))
+                    setSelectedTrustSupplierName(String(r.organization_name))
+                    setTrustModalOpen(true)
+                  }}
+                >
+                  Bảng điểm 5 trụ cột
+                </Button>
+              )}
+            />
+          </>
+        )
+      }] : []),
       ...(can('SYSTEM_ADMIN') ? [{ key: 'partners', label: 'Tài khoản', children: <><DataTable path="/admin/partners/pending" rowKey="organization_id" columns={[[ 'organization_name', 'Đơn vị' ], ['organization_type', 'Loại']]} actions={r => <Button onClick={async () => { try { await api(`/admin/partners/${r.organization_id}/approve`, 'POST'); await client.invalidateQueries() } catch (e) { setError((e as Error).message) } }}>Duyệt hồ sơ</Button>} /><ActionForm title="Tài khoản nhân viên" path="/admin/staff" fields={[
         { name: 'email', label: 'Email' }, { name: 'fullName', label: 'Họ tên' }, { name: 'password', label: 'Mật khẩu ban đầu (ít nhất 12 ký tự)', type: 'password' }, { name: 'roles', label: 'Quyền được cấp', type: 'multiple', options: [{ value: 'OPERATIONS_COORDINATOR', label: 'Điều phối' }, { value: 'QUALITY_INSPECTOR', label: 'Kiểm hàng' }, { value: 'ACCOUNTANT', label: 'Kế toán' }, { value: 'CUSTOMER_SUPPORT', label: 'Chăm sóc khách hàng' }, { value: 'DRIVER', label: 'Tài xế' }] },
       ]} /></> }] : []),
     ]} />
+    <CoopTrustScoreModal supplierId={selectedTrustSupplierId} supplierName={selectedTrustSupplierName} open={trustModalOpen} onClose={() => setTrustModalOpen(false)} />
   </>
 }

@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage'
 import PortalPage from './pages/PortalPage'
 import TracePage from './pages/TracePage'
 import AccessPage from './pages/AccessPage'
+import VerifyGreenCertPage from './pages/VerifyGreenCertPage'
 import { useAuth } from './auth/AuthContext'
 import FloatingSupportWidget from './components/FloatingSupportWidget'
 
@@ -23,6 +24,7 @@ export default function App() {
         {['/accept-invitation','/reset-password','/forgot-password','/registration-status'].map(path=><Route key={path} path={path} element={<AccessPage/>}/>)}
         <Route path="/portal/*" element={<PortalPage />} />
         <Route path="/trace/:code" element={<TracePage />} />
+        <Route path="/verify-cert/:code" element={<VerifyGreenCertPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <FloatingSupportWidget />
