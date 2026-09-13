@@ -15,6 +15,7 @@ import OperationsPage from './OperationsPage'
 import TripPage from './TripPage'
 import { AnalyticsPage, InvoicesPage, MembersPage, NotificationsPage } from './ManagementPages'
 import { DashboardPage, DetailPage, AccountPage, AdminPage } from './WorkspacePages'
+import { WebQrScannerModal } from '../components/WebQrScannerModal'
 
 export default function PortalPage() {
   const { user, membership, selectWorkspace, logout } = useAuth()
@@ -23,6 +24,7 @@ export default function PortalPage() {
   const [mobile, setMobile] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [pendingOffline, setPendingOffline] = useState(0)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
 
   const unreadQuery = useQuery({
     queryKey: ['notifications-unread'],
@@ -308,6 +310,25 @@ export default function PortalPage() {
           <GlobalSearch />
 
           <div className="portal-header-actions">
+            <Button
+              type="default"
+              className="portal-qr-scan-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                borderRadius: 20,
+                borderColor: '#176b45',
+                color: '#176b45',
+                fontWeight: 600,
+                background: '#f0fdf4'
+              }}
+              icon={<span className="material-symbols-outlined" style={{ fontSize: 18, color: '#176b45' }}>qr_code_scanner</span>}
+              onClick={() => setQrModalOpen(true)}
+            >
+              Quét QR
+            </Button>
+
             {pendingOffline > 0 && (
               <Button
                 size="small"
@@ -398,6 +419,7 @@ export default function PortalPage() {
           </section>
         </main>
       </div>
+      <WebQrScannerModal open={qrModalOpen} onClose={() => setQrModalOpen(false)} />
     </Layout>
   )
 }

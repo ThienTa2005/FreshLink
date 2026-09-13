@@ -9,19 +9,49 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.freshlink.identity.Actor;
 import vn.freshlink.common.*;
 
+import java.time.LocalDate;
+
 @Service
 public class QualityService {
     private final JdbcTemplate jdbc; private final Sql sql; private final Idempotency dedup; private final MediaController media;
     public QualityService(JdbcTemplate jdbc,Sql sql,Idempotency dedup,MediaController media) {this.jdbc=jdbc;this.sql=sql;this.dedup=dedup;this.media=media;}
-    public record Batch(@NotNull Long requestItemId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotBlank @Size(max=1000) String origin) {}
+    public record Batch(
+        @NotNull Long requestItemId,
+        @NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,
+        @NotBlank @Size(max=1000) String origin,
+        @Size(max=150) String varietyName,
+        LocalDate plantingDate,
+        @Size(max=255) String packagingFacility,
+        String cultivationDiary
+    ) {
+        public Batch(Long requestItemId, BigDecimal quantity, String origin) {
+            this(requestItemId, quantity, origin, null, null, null, null);
+        }
+    }
     @Transactional public long create(Actor actor,Batch r,String key) {
         return dedup.execute(actor.userId(),key,"CREATE_BATCH",r.toString(),()->{
             var item=jdbc.queryForMap("SELECT i.*,r.supplier_id FROM supply_request_items i JOIN supply_requests r ON r.supply_request_id=i.supply_request_id WHERE i.supply_request_item_id=? FOR UPDATE",r.requestItemId());
-            actor.requireOrganization(((Number)item.get("supplier_id")).longValue(),"SUPPLIER_MANAGER","SUPPLIER_STAFF");
+            long supplierId = ((Number)item.get("supplier_id")).longValue();
+            actor.requireOrganization(supplierId,"SUPPLIER_MANAGER","SUPPLIER_STAFF");
             if(!Set.of("ACCEPTED","PARTIALLY_ACCEPTED").contains(item.get("status"))) throw new IllegalArgumentException("Cần xác nhận cung ứng trước khi tạo lô");
             BigDecimal declared=jdbc.queryForObject("SELECT COALESCE(SUM(declared_quantity),0) FROM batches WHERE supply_request_item_id=? AND batch_status<>'CLOSED'",BigDecimal.class,r.requestItemId());
             if(declared.add(r.quantity()).compareTo((BigDecimal)item.get("accepted_quantity"))>0) throw new IllegalArgumentException("Tổng lô vượt lượng cung ứng đã chốt");
-            return sql.insert("INSERT INTO batches(batch_code,supplier_id,sku_id,supply_request_item_id,declared_quantity,trace_note,created_by) VALUES (?,?,?,?,?,?,?)","LO-"+UUID.randomUUID(),item.get("supplier_id"),item.get("sku_id"),r.requestItemId(),r.quantity(),r.origin(),actor.userId());
+
+            if(r.varietyName()!=null || r.cultivationDiary()!=null) {
+                Integer approvedCount = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM supplier_documents
+                    WHERE supplier_id = ? AND document_type = 'VIETGAP' AND verification_status = 'APPROVED'
+                      AND (expiry_date IS NULL OR expiry_date >= CURRENT_DATE())
+                """, Integer.class, supplierId);
+                if (approvedCount == null || approvedCount == 0) {
+                    throw new IllegalArgumentException("Hợp tác xã chưa có Giấy chứng nhận VietGAP được Admin duyệt. Vui lòng tải hồ sơ để mở khóa tính năng này.");
+                }
+            }
+
+            return sql.insert("""
+                INSERT INTO batches(batch_code,supplier_id,sku_id,supply_request_item_id,variety_name,planting_date,packaging_facility,declared_quantity,trace_note,cultivation_diary,created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            ""","LO-"+UUID.randomUUID(),supplierId,item.get("sku_id"),r.requestItemId(),r.varietyName(),r.plantingDate(),r.packagingFacility(),r.quantity(),r.origin(),r.cultivationDiary(),actor.userId());
         });
     }
     public record Inspection(@NotNull @DecimalMin("0") @Digits(integer=9,fraction=3) BigDecimal accepted,

@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import com.google.zxing.*;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,7 @@ import vn.freshlink.common.api.ApiResponse;
 @RestController @RequestMapping("/api")
 public class TraceController {
     private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Value("${app.frontend-url:http://localhost:5173}") private String frontendUrl;
     public TraceController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
     @PostMapping("/qr/{type}/{id}") public ApiResponse<?> label(@AuthenticationPrincipal Actor a,@PathVariable String type,@PathVariable long id) throws Exception {
@@ -38,7 +40,14 @@ public class TraceController {
     }
     @GetMapping("/public/trace/{code}") public ApiResponse<?> trace(@PathVariable String code) {
         var codes=jdbc.queryForList("SELECT entity_type,entity_id FROM qr_codes WHERE public_code=? AND status='ACTIVE' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP(3))",code);
-        if(codes.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"QR không tồn tại hoặc đã hết hiệu lực");
+        if(codes.isEmpty()) {
+            var batchList=jdbc.queryForList("SELECT batch_id FROM batches WHERE batch_code=?",code);
+            if(!batchList.isEmpty()) {
+                long batchId=((Number)batchList.get(0).get("batch_id")).longValue();
+                return ApiResponse.success(Map.of("type","BATCH","batches",publicBatches("b.batch_id=?",batchId)),"Thông tin truy xuất");
+            }
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"QR không tồn tại hoặc đã hết hiệu lực");
+        }
         var qr=codes.get(0);long id=((Number)qr.get("entity_id")).longValue();
         List<Map<String,Object>> batches;
         if(qr.get("entity_type").equals("BATCH")) batches=publicBatches("b.batch_id=?",id);
@@ -47,7 +56,81 @@ public class TraceController {
         return ApiResponse.success(Map.of("type",qr.get("entity_type"),"batches",batches),"Thông tin truy xuất đã ghi nhận; QR không phải chứng nhận chất lượng");
     }
     private List<Map<String,Object>> publicBatches(String predicate,long id) {
-        // The predicate comes only from fixed server-side branches; private order data is never selected.
-        return jdbc.queryForList("SELECT b.batch_code,s.sku_name,s.pack_description,o.organization_name,b.harvest_at,b.packed_at,b.received_at,b.batch_status FROM batches b JOIN product_skus s ON s.sku_id=b.sku_id JOIN organizations o ON o.organization_id=b.supplier_id WHERE "+predicate,id);
+        var rows=jdbc.queryForList("""
+            SELECT b.batch_id, b.batch_code, b.supplier_id, b.sku_id,
+                   s.sku_name, s.pack_description, s.image_url,
+                   o.organization_name, o.tax_code AS supplier_tax_code, o.phone AS supplier_phone, o.email AS supplier_email,
+                   b.variety_name, b.planting_date, b.packaging_facility, b.cultivation_diary,
+                   b.harvest_at, b.packed_at, b.received_at, b.declared_quantity, b.accepted_quantity,
+                   b.batch_status, b.trace_note
+            FROM batches b
+            JOIN product_skus s ON s.sku_id=b.sku_id
+            JOIN organizations o ON o.organization_id=b.supplier_id
+            WHERE """+predicate,id);
+
+        List<Map<String,Object>> results=new ArrayList<>();
+        for(var row:rows) {
+            Map<String,Object> map=new HashMap<>(row);
+            long supplierId=((Number)row.get("supplier_id")).longValue();
+            long batchId=((Number)row.get("batch_id")).longValue();
+
+            // 1. VietGAP Certificate (Nhóm 1)
+            var certs=jdbc.queryForList("""
+                SELECT supplier_document_id, document_number, certifying_body, certification_scope,
+                       issued_date, expiry_date, verification_status, file_id
+                FROM supplier_documents
+                WHERE supplier_id=? AND document_type='VIETGAP' AND verification_status='APPROVED'
+                ORDER BY supplier_document_id DESC LIMIT 1
+            """,supplierId);
+            map.put("vietgap_certificate",!certs.isEmpty()?certs.get(0):null);
+
+            // 2. Farm and producer address info (Nhóm 2)
+            var addrs=jdbc.queryForList("""
+                SELECT address_name, contact_name, contact_phone, address_line, ward, district, city, latitude, longitude
+                FROM addresses
+                WHERE organization_id=?
+                ORDER BY (address_type='FARM') DESC, is_default DESC, address_id DESC LIMIT 1
+            """,supplierId);
+            map.put("farm_address",!addrs.isEmpty()?addrs.get(0):null);
+
+            // 3. Cultivation Diary parsed (Nhóm 4)
+            if(row.get("cultivation_diary")!=null) {
+                try {
+                    map.put("cultivation_diary",objectMapper.readValue(row.get("cultivation_diary").toString(),Object.class));
+                } catch(Exception ignored) {}
+            }
+
+            // 4. KCS Gate Inspection details & cold chain (Nhóm 5)
+            var inspections=jdbc.queryForList("""
+                SELECT inspection_id, final_result, accepted_quantity, review_quantity, rejected_quantity, general_note, inspected_at
+                FROM batch_inspections
+                WHERE batch_id=?
+                ORDER BY inspection_id DESC LIMIT 1
+            """,batchId);
+            if(!inspections.isEmpty()) {
+                var insp=new HashMap<>(inspections.get(0));
+                long inspId=((Number)insp.get("inspection_id")).longValue();
+                var items=jdbc.queryForList("""
+                    SELECT criterion_code, criterion_name, result, note, evidence_file_id
+                    FROM inspection_items
+                    WHERE inspection_id=?
+                """,inspId);
+                insp.put("items",items);
+                Long evidenceFileId=null;
+                for(var item:items) {
+                    if(item.get("evidence_file_id")!=null) {
+                        evidenceFileId=((Number)item.get("evidence_file_id")).longValue();
+                        break;
+                    }
+                }
+                insp.put("evidence_file_id",evidenceFileId);
+                map.put("gate_inspection",insp);
+            } else {
+                map.put("gate_inspection",null);
+            }
+
+            results.add(map);
+        }
+        return results;
     }
 }

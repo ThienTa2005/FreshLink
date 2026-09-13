@@ -28,8 +28,11 @@ export function Logo({ light = false, to }: { light?: boolean; to?: string }) {
   )
 }
 
+import { WebQrScannerModal } from './WebQrScannerModal'
+
 export function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
   const { user } = useAuth()
 
   return (
@@ -43,6 +46,24 @@ export function PublicHeader() {
           <Link to="/trace/demo">Tra cứu lô</Link>
         </nav>
         <div className="public-actions">
+          <Button
+            type="default"
+            className="qr-scan-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              borderRadius: 20,
+              borderColor: '#176b45',
+              color: '#176b45',
+              fontWeight: 600,
+              background: '#f0fdf4'
+            }}
+            icon={<span className="material-symbols-outlined" style={{ fontSize: 18, color: '#176b45' }}>qr_code_scanner</span>}
+            onClick={() => setQrModalOpen(true)}
+          >
+            Quét mã QR
+          </Button>
           {user ? (
             <Link className="button button-small" to="/portal/dashboard" style={{ background: '#176b45', color: '#ffffff', fontWeight: 700 }}>
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>dashboard</span>
@@ -74,6 +95,17 @@ export function PublicHeader() {
         onClose={() => setMobileOpen(false)}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: 16, fontWeight: 600 }}>
+          <Button
+            type="primary"
+            style={{ background: '#176b45', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 42, borderRadius: 10 }}
+            icon={<span className="material-symbols-outlined">qr_code_scanner</span>}
+            onClick={() => {
+              setMobileOpen(false)
+              setQrModalOpen(true)
+            }}
+          >
+            Quét mã QR VietGAP
+          </Button>
           <a href="/#solutions" onClick={() => setMobileOpen(false)}>Giải pháp B2B</a>
           <a href="/#workflow" onClick={() => setMobileOpen(false)}>Chuỗi cung ứng</a>
           <a href="/#traceability" onClick={() => setMobileOpen(false)}>Truy xuất nguồn gốc</a>
@@ -83,6 +115,7 @@ export function PublicHeader() {
           <Link to="/register" className="button" onClick={() => setMobileOpen(false)}>Đăng ký hợp tác</Link>
         </div>
       </Drawer>
+      <WebQrScannerModal open={qrModalOpen} onClose={() => setQrModalOpen(false)} />
     </header>
   )
 }

@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Alert, Button, Card, Input, Space, Statistic, Tabs } from 'antd'
+import { Alert, Button, Card, Input, Space, Statistic, Tabs, Tag } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/http'
 import { Link } from 'react-router-dom'
 import { useUrlTab } from '../components/useUrlTab'
 import { SourcingWorkbench } from './SourcingWorkbench'
 import { useAuth } from '../auth/AuthContext'
-import { ActionForm, DataTable, QrButton, options, tomorrow, useRows, type Row } from '../components/Workspace'
+import { ActionForm, DataTable, EvidenceLink, QrButton, options, tomorrow, useRows, type Row } from '../components/Workspace'
 import TripPage from './TripPage'
 import { AiTripOptimizerModal } from '../components/AiTripOptimizerModal'
 
@@ -38,7 +38,76 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
     {error && <Alert type="error" message={error} />}{lookup.error && <Alert type="error" message={lookup.error.message} />}
     <Tabs activeKey={tab} onChange={setTab} items={[
       ...(can('OPERATIONS_COORDINATOR') ? [
-        { key: 'overview', label: 'Tổng quan', children: <><div className="stat-grid">{[['shortages', 'Đơn thiếu nguồn'], ['waitingBatches', 'Lô chờ kiểm'], ['trips', 'Chuyến chưa xong'], ['claims', 'Khiếu nại chờ xử lý']].map(([key, title]) => <Card key={key}><Statistic title={title} value={dashboard.data?.[key] ?? 0} loading={dashboard.isPending} /></Card>)}</div><DataTable path={`/operations/orders?date=${date}`} rowKey="order_id" columns={[[ 'order_code', 'Đơn' ], ['order_status', 'Trạng thái'], ['total_amount', 'Tổng tiền']]} /></> },
+        { key: 'overview', label: 'Tổng quan', children: <>
+          <div className="stat-grid">{[['shortages', 'Đơn thiếu nguồn'], ['waitingBatches', 'Lô chờ kiểm'], ['trips', 'Chuyến chưa xong'], ['claims', 'Khiếu nại chờ xử lý']].map(([key, title]) => <Card key={key}><Statistic title={title} value={dashboard.data?.[key] ?? 0} loading={dashboard.isPending} /></Card>)}</div>
+
+          {/* REVENUE & PRICING SPREAD MARGIN MODEL */}
+          <div style={{
+            margin: '20px 0',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+            border: '1.5px solid #a7f3d0',
+            borderRadius: 14,
+            padding: '20px 24px',
+            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#059669' }}>payments</span>
+                <div>
+                  <h3 style={{ margin: 0, color: '#064e3b', fontSize: 17, fontWeight: 700 }}>
+                    Báo Cáo Minh Bạch Doanh Thu Sàn & Khấu Trừ Chênh Lệch Giá (Revenue Model)
+                  </h3>
+                  <p style={{ margin: '2px 0 0', color: '#047857', fontSize: 13 }}>
+                    Cơ chế dòng tiền 3 bên: Hợp tác xã (HTX) — FreshLink Platform — Nhà hàng F&B
+                  </p>
+                </div>
+              </div>
+              <Tag color="success" style={{ fontWeight: 700, padding: '4px 10px', fontSize: 12 }}>
+                ĐỐI SOÁT TỰ ĐỘNG
+              </Tag>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 }}>
+              <div style={{ background: '#ffffff', borderRadius: 10, padding: '14px 16px', border: '1px solid #bbf7d0' }}>
+                <strong style={{ color: '#065f46', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>trending_up</span>
+                  1. Chênh Lệch Giá Mua - Bán (Trading Margin)
+                </strong>
+                <p style={{ margin: '6px 0 0', color: '#475569', fontSize: 12.5 }}>
+                  FreshLink ký hợp đồng thu mua với HTX theo <code>supplier_unit_price</code> và phân phối cho Nhà hàng theo <code>selling_unit_price</code>. Khấu trừ chênh lệch tạo biên lợi nhuận gộp <strong>15% - 25%</strong>.
+                </p>
+              </div>
+
+              <div style={{ background: '#ffffff', borderRadius: 10, padding: '14px 16px', border: '1px solid #bbf7d0' }}>
+                <strong style={{ color: '#065f46', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>percent</span>
+                  2. Hoa Hồng Sàn B2B (Commission Fee)
+                </strong>
+                <p style={{ margin: '6px 0 0', color: '#475569', fontSize: 12.5 }}>
+                  Khấu trừ tự động <strong>3% - 8%</strong> trên tổng doanh số đối soát thanh toán định kỳ của HTX khi hoàn tất giao nhận qua cổng Gate KCS.
+                </p>
+              </div>
+
+              <div style={{ background: '#ffffff', borderRadius: 10, padding: '14px 16px', border: '1px solid #bbf7d0' }}>
+                <strong style={{ color: '#065f46', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>local_shipping</span>
+                  3. Phí Chuỗi Lạnh & Thùng SmartCrate
+                </strong>
+                <p style={{ margin: '6px 0 0', color: '#475569', fontSize: 12.5 }}>
+                  Phí vận hành đội xe lạnh chuyên dụng (+2°C ~ +6°C) và phí thuê, vệ sinh khử trùng thùng nhựa luân chuyển thông minh SmartCrate.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.8)', borderRadius: 8 }}>
+              <small style={{ color: '#047857' }}>
+                💡 <strong>Nguyên tắc minh bạch:</strong> Giá thu mua của HTX và giá xuất bán cho Nhà hàng đều được công khai minh bạch trên phiếu đối soát điện tử, loại bỏ hoàn toàn tầng lớp thương lái trung gian.
+              </small>
+            </div>
+          </div>
+
+          <DataTable path={`/operations/orders?date=${date}`} rowKey="order_id" columns={[[ 'order_code', 'Đơn' ], ['order_status', 'Trạng thái'], ['total_amount', 'Tổng tiền']]} />
+        </> },
         {key:'source',label:'Phân nguồn',children:<SourcingWorkbench date={date}/>},
         { key: 'trips', label: 'Điều phối giao', children: <>
           {/* AI SMART DISPATCH HERO CARD */}
@@ -188,6 +257,84 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
       ]} /><DataTable path="/billing/settlements" rowKey="settlement_id" columns={[[ 'settlement_id', 'ID' ], ['settlement_code', 'Phiếu'], ['payable_amount', 'Phải trả'], ['status', 'Trạng thái'], ['paid_at', 'Ngày chi']]} /><ActionForm title="Chi trả nhà cung cấp" path={v => `/billing/settlements/${v.id}/pay`} fields={[
         { name: 'id', label: 'Phiếu đối soát', type: 'select', options: options(settlements.data, 'settlement_id', 'settlement_code') }, { name: 'reference', label: 'Mã chứng từ chi trả' },
       ]} transform={v => ({ reference: v.reference })} /></> }] : []),
+      ...(can('SYSTEM_ADMIN') || can('OPERATIONS_COORDINATOR') ? [{
+        key: 'vietgap_docs',
+        label: 'Duyệt VietGAP HTX',
+        children: (
+          <>
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1.5px solid #86efac',
+              borderRadius: 12,
+              padding: '16px 20px',
+              marginBottom: 16
+            }}>
+              <h3 style={{ margin: 0, color: '#064e3b', fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#059669' }}>verified_user</span>
+                Trung Tâm Kiểm Định & Phê Duyệt Hồ Sơ VietGAP Nông Sản
+              </h3>
+              <p style={{ margin: '4px 0 0', color: '#047857', fontSize: 13.5 }}>
+                Khi Quản trị viên duyệt chứng chỉ VietGAP, Hợp tác xã sẽ lập tức được cấp quyền sinh <strong>Mã QR Động</strong> và phát hành chứng thư truy xuất nguồn gốc công khai trên toàn hệ thống.
+              </p>
+            </div>
+
+            <DataTable
+              path="/admin/supplier-documents/pending"
+              rowKey="supplier_document_id"
+              columns={[
+                ['supplier_name', 'Hợp tác xã / NCC'],
+                ['document_type', 'Loại hồ sơ'],
+                ['document_number', 'Số chứng nhận'],
+                ['certifying_body', 'Tổ chức cấp'],
+                ['certification_scope', 'Phạm vi cây trồng'],
+                ['issued_date', 'Ngày cấp'],
+                ['expiry_date', 'Hết hạn'],
+                ['verification_status', 'Trạng thái']
+              ]}
+              actions={r => (
+                <Space wrap>
+                  {r.file_id != null && <EvidenceLink id={Number(r.file_id)} />}
+                  {r.verification_status !== 'APPROVED' && (
+                    <Button
+                      type="primary"
+                      size="small"
+                      style={{ background: '#176b45' }}
+                      onClick={async () => {
+                        try {
+                          await api(`/admin/supplier-documents/${r.supplier_document_id}/verify`, 'POST', { approved: true })
+                          await client.invalidateQueries()
+                        } catch (e) {
+                          setError((e as Error).message)
+                        }
+                      }}
+                    >
+                      Duyệt VietGAP
+                    </Button>
+                  )}
+                  {r.verification_status === 'PENDING' && (
+                    <Button
+                      danger
+                      size="small"
+                      onClick={async () => {
+                        const reason = window.prompt('Lý do từ chối hoặc yêu cầu bổ sung:', 'Chứng chỉ mờ hoặc hết hạn hiệu lực')
+                        if (reason === null) return
+                        try {
+                          await api(`/admin/supplier-documents/${r.supplier_document_id}/verify`, 'POST', { approved: false, reason })
+                          await client.invalidateQueries()
+                        } catch (e) {
+                          setError((e as Error).message)
+                        }
+                      }}
+                    >
+                      Từ chối
+                    </Button>
+                  )}
+                </Space>
+              )}
+            />
+          </>
+        )
+      }] : []),
       ...(can('SYSTEM_ADMIN') ? [{ key: 'partners', label: 'Tài khoản', children: <><DataTable path="/admin/partners/pending" rowKey="organization_id" columns={[[ 'organization_name', 'Đơn vị' ], ['organization_type', 'Loại']]} actions={r => <Button onClick={async () => { try { await api(`/admin/partners/${r.organization_id}/approve`, 'POST'); await client.invalidateQueries() } catch (e) { setError((e as Error).message) } }}>Duyệt hồ sơ</Button>} /><ActionForm title="Tài khoản nhân viên" path="/admin/staff" fields={[
         { name: 'email', label: 'Email' }, { name: 'fullName', label: 'Họ tên' }, { name: 'password', label: 'Mật khẩu ban đầu (ít nhất 12 ký tự)', type: 'password' }, { name: 'roles', label: 'Quyền được cấp', type: 'multiple', options: [{ value: 'OPERATIONS_COORDINATOR', label: 'Điều phối' }, { value: 'QUALITY_INSPECTOR', label: 'Kiểm hàng' }, { value: 'ACCOUNTANT', label: 'Kế toán' }, { value: 'CUSTOMER_SUPPORT', label: 'Chăm sóc khách hàng' }, { value: 'DRIVER', label: 'Tài xế' }] },
       ]} /></> }] : []),
