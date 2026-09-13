@@ -58,13 +58,14 @@ public class TraceController {
     private List<Map<String,Object>> publicBatches(String predicate,long id) {
         var rows=jdbc.queryForList("""
             SELECT b.batch_id, b.batch_code, b.supplier_id, b.sku_id,
-                   s.sku_name, s.pack_description, s.image_url,
+                   s.sku_name, s.pack_description, p.image_url,
                    o.organization_name, o.tax_code AS supplier_tax_code, o.phone AS supplier_phone, o.email AS supplier_email,
                    b.variety_name, b.planting_date, b.packaging_facility, b.cultivation_diary,
                    b.harvest_at, b.packed_at, b.received_at, b.declared_quantity, b.accepted_quantity,
                    b.batch_status, b.trace_note
             FROM batches b
             JOIN product_skus s ON s.sku_id=b.sku_id
+            JOIN products p ON p.product_id=s.product_id
             JOIN organizations o ON o.organization_id=b.supplier_id
             WHERE """+predicate,id);
 

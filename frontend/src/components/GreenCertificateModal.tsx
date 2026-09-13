@@ -18,6 +18,22 @@ export interface GreenCertificateData {
   issuedAt: string
 }
 
+export interface EsgSummaryData {
+  organizationId: number
+  organizationName: string
+  organizationType: string
+  periodType: string
+  periodStart: string
+  periodEnd: string
+  plasticSavedKg: number
+  co2SavedKg: number
+  cratesCirculated: number
+  kmOptimized: number
+  orderOrBatchCount: number
+  impactStatement: string
+}
+
+
 export function GreenCertificateModal({
   open,
   onClose,

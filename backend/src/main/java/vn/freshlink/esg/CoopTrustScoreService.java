@@ -105,18 +105,11 @@ public class CoopTrustScoreService {
 
         // 4. Pillar 4: Claims & Complaint Reliability (10 points max)
         var complaintCountList = jdbc.queryForList("""
-            SELECT COUNT(c.complaint_id) AS count
-            FROM complaints c
-            WHERE c.order_item_id IN (
-                SELECT oi.order_item_id
-                FROM order_items oi
-                JOIN delivery_items di ON di.trip_stop_id IN (
-                    SELECT ts.trip_stop_id FROM trip_stops ts WHERE ts.order_id = oi.order_id
-                )
-                JOIN batch_allocations ba ON ba.batch_allocation_id = di.batch_allocation_id
-                JOIN batches b ON b.batch_id = ba.batch_id
-                WHERE b.supplier_id = ?
-            ) AND c.status NOT IN ('REJECTED')
+            SELECT COUNT(ci.complaint_item_id) AS count
+            FROM complaint_items ci
+            JOIN complaints c ON c.complaint_id = ci.complaint_id
+            JOIN batches b ON b.batch_id = ci.batch_id
+            WHERE b.supplier_id = ? AND c.status NOT IN ('REJECTED')
         """, supplierId);
 
         long complaintCount = 0;

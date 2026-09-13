@@ -10,7 +10,7 @@ import { ActionForm, DataTable, options, tomorrow, useRows, type Row } from '../
 import { WeeklyEditor } from './WeeklyEditor'
 import { ProductImage } from '../components/ProductImage'
 import { CoopTrustScoreModal } from '../components/CoopTrustScoreModal'
-import { GreenCertificateModal, type GreenCertificateData } from '../components/GreenCertificateModal'
+import { GreenCertificateModal, type GreenCertificateData, type EsgSummaryData } from '../components/GreenCertificateModal'
 
 export default function RestaurantPage({organizationId,initialTab='orders'}:{organizationId:number;initialTab?:string}){
  const {membership}=useAuth();const purchaser=can(membership,'RESTAURANT_MANAGER','RESTAURANT_PURCHASER');const manager=can(membership,'RESTAURANT_MANAGER');const receiver=can(membership,'RESTAURANT_MANAGER','RESTAURANT_RECEIVER')
@@ -19,7 +19,7 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  const [address,setAddress]=useState<number>();const [startTime,setStart]=useState('07:00');const [endTime,setEnd]=useState('09:00');const [search,setSearch]=useState('');const [category,setCategory]=useState<number>();const [favorites,setFavorites]=useState<number[]>([]);const [onlyFavorites,setOnlyFavorites]=useState(false)
  const [weeklyPlanId,setPlan]=useState<number>();const [editId,setEdit]=useState<number>();const [name,setName]=useState('Đơn thường mua');const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [request,setRequest]=useState({hash:'',key:crypto.randomUUID()})
  const [trustModalOpen, setTrustModalOpen] = useState(false); const [selectedSupplierId, setSelectedSupplierId] = useState<number>(); const [selectedSupplierName, setSelectedSupplierName] = useState<string>()
- const [certModalOpen, setCertModalOpen] = useState(false); const [certData, setCertData] = useState<GreenCertificateData | null>(null); const [esgPeriod, setEsgPeriod] = useState<string>('60_DAYS'); const [esgLoading, setEsgLoading] = useState(false); const [esgSummary, setEsgSummary] = useState<any>(null)
+ const [certModalOpen, setCertModalOpen] = useState(false); const [certData, setCertData] = useState<GreenCertificateData | null>(null); const [esgPeriod, setEsgPeriod] = useState<string>('60_DAYS'); const [esgLoading, setEsgLoading] = useState(false); const [esgSummary, setEsgSummary] = useState<EsgSummaryData | null>(null)
  const catalog=useRows('/public/catalog?date='+date,purchaser);const addresses=useRows('/addresses?organizationId='+organizationId);const orders=useRows('/orders?restaurantId='+organizationId)
  const saved=useRows('/restaurants/'+organizationId+'/saved-orders',purchaser);const policy=useQuery({queryKey:['policy',organizationId],queryFn:()=>api<Row>('/restaurants/'+organizationId+'/policy')})
  const windowQuery=useQuery({queryKey:['order-window'],queryFn:()=>api<{earliestDate:string;cutoff:string}>('/public/order-window')})
@@ -32,7 +32,7 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  useEffect(()=>{
   if(tab!=='greenCert') return
   setEsgLoading(true)
-  api<any>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
+  api<EsgSummaryData>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
     .then(data=>setEsgSummary(data))
     .catch(e=>setError((e as Error).message))
     .finally(()=>setEsgLoading(false))

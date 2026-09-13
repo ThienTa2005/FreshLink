@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Modal, Tag, Progress, Card, Spin, Alert, Button } from 'antd'
 import { api } from '../api/http'
 
-interface TrustDetail {
+export interface TrustDetail {
   organization_id: number
   organization_name: string
   organization_code: string

@@ -10,7 +10,8 @@ import { ActionForm, DataTable, EvidenceLink, tomorrow, useRows, type Row } from
 import { OffersEditor } from './OffersEditor'
 import { SupplierProductsEditor } from './SupplierProductsEditor'
 import { FreshLinkMap } from '../components/FreshLinkMap'
-import { GreenCertificateModal, type GreenCertificateData } from '../components/GreenCertificateModal'
+import { type TrustDetail } from '../components/CoopTrustScoreModal'
+import { GreenCertificateModal, type GreenCertificateData, type EsgSummaryData } from '../components/GreenCertificateModal'
 
 interface DiaryEvent {
   date: string
@@ -41,7 +42,7 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
   // Query Trust Score
   const trustQuery = useQuery({
     queryKey: ['supplier-trust', organizationId],
-    queryFn: () => api<any>(`/suppliers/${organizationId}/trust-detail`)
+    queryFn: () => api<TrustDetail>(`/suppliers/${organizationId}/trust-detail`)
   })
   const [trustLoading, setTrustLoading] = useState(false)
 
@@ -50,12 +51,12 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
   const [certData, setCertData] = useState<GreenCertificateData | null>(null)
   const [esgPeriod, setEsgPeriod] = useState<string>('60_DAYS')
   const [esgLoading, setEsgLoading] = useState(false)
-  const [esgSummary, setEsgSummary] = useState<any>(null)
+  const [esgSummary, setEsgSummary] = useState<EsgSummaryData | null>(null)
 
   useEffect(() => {
     if (tab !== 'greenCert') return
     setEsgLoading(true)
-    api<any>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
+    api<EsgSummaryData>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
       .then(res => setEsgSummary(res))
       .catch(() => {})
       .finally(() => setEsgLoading(false))
