@@ -1,10 +1,12 @@
-import { Alert, Button, Card, Descriptions, Spin, Tag, Timeline, Divider, Space } from 'antd'
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Alert, Button, Card, Descriptions, Input, Spin, Tag, Timeline, Divider, Space } from 'antd'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
 import type { Row } from '../components/Workspace'
 import { Logo } from '../components/Brand'
 import { FreshLinkMap } from '../components/FreshLinkMap'
+import { WebQrScannerModal } from '../components/WebQrScannerModal'
 
 interface CultivationItem {
   date?: string
@@ -66,6 +68,9 @@ interface TraceBatchRow {
 
 export default function TracePage() {
   const { code } = useParams()
+  const navigate = useNavigate()
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [retryCode, setRetryCode] = useState('')
   const query = useQuery({
     queryKey: ['trace', code],
     queryFn: () => api<{ type: string; batches?: Row[]; assets?: Row[] }>(`/public/trace/${code}`)
@@ -113,7 +118,13 @@ export default function TracePage() {
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <Logo />
-        <Space>
+        <Space wrap>
+          <Button
+            onClick={() => setScannerOpen(true)}
+            icon={<span className="material-symbols-outlined" style={{ fontSize: 16 }}>qr_code_scanner</span>}
+          >
+            Quét mã QR khác
+          </Button>
           <Button
             type="primary"
             onClick={() => window.print()}
@@ -166,13 +177,49 @@ export default function TracePage() {
       )}
 
       {query.error && (
-        <Alert
-          type="error"
-          showIcon
-          message="Không tìm thấy thông tin định danh"
-          description={`Mã tra cứu "${code}" không tồn tại trên hệ thống hoặc đã hết hiệu lực truy xuất. Vui lòng quét lại tem QR trên thùng.`}
-          style={{ borderRadius: 14, marginBottom: 24 }}
-        />
+        <Card style={{ borderRadius: 16, marginBottom: 24, border: '1.5px solid #fecaca', background: '#fff5f5' }}>
+          <Alert
+            type="error"
+            showIcon
+            message="Không tìm thấy thông tin định danh"
+            description={`Mã tra cứu "${code}" không tồn tại trên hệ thống hoặc đã hết hiệu lực truy xuất. Vui lòng quét lại tem QR trên thùng.`}
+            style={{ borderRadius: 12, marginBottom: 16 }}
+          />
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button
+              type="primary"
+              style={{ background: '#059669' }}
+              onClick={() => navigate('/trace/demo')}
+            >
+              🌱 Xem Lô Hàng Mẫu Chuẩn VietGAP (Demo)
+            </Button>
+            <Button
+              icon={<span className="material-symbols-outlined" style={{ fontSize: 16 }}>qr_code_scanner</span>}
+              onClick={() => setScannerOpen(true)}
+            >
+              Quét lại mã QR khác
+            </Button>
+            <Space.Compact style={{ flex: '1 1 240px' }}>
+              <Input
+                placeholder="Nhập mã lô khác (VD: LO-...)"
+                value={retryCode}
+                onChange={e => setRetryCode(e.target.value)}
+                onPressEnter={() => {
+                  if (retryCode.trim()) navigate(`/trace/${encodeURIComponent(retryCode.trim())}`)
+                }}
+              />
+              <Button
+                type="primary"
+                onClick={() => {
+                  if (retryCode.trim()) navigate(`/trace/${encodeURIComponent(retryCode.trim())}`)
+                }}
+              >
+                Tra cứu
+              </Button>
+            </Space.Compact>
+          </div>
+        </Card>
       )}
 
       {rows.length === 0 && !query.isPending && !query.error && (
@@ -608,6 +655,8 @@ export default function TracePage() {
           ← Quay lại Trang chủ FreshLink
         </Link>
       </div>
+
+      <WebQrScannerModal open={scannerOpen} onClose={() => setScannerOpen(false)} />
     </main>
   )
 }

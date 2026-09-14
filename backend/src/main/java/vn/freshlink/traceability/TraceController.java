@@ -39,21 +39,129 @@ public class TraceController {
         return ApiResponse.success(Map.of("url",url,"code",code,"image","data:image/png;base64,"+Base64.getEncoder().encodeToString(bytes.toByteArray())),"Nhãn QR");
     }
     @GetMapping("/public/trace/{code}") public ApiResponse<?> trace(@PathVariable String code) {
-        var codes=jdbc.queryForList("SELECT entity_type,entity_id FROM qr_codes WHERE public_code=? AND status='ACTIVE' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP(3))",code);
-        if(codes.isEmpty()) {
-            var batchList=jdbc.queryForList("SELECT batch_id FROM batches WHERE batch_code=?",code);
-            if(!batchList.isEmpty()) {
-                long batchId=((Number)batchList.get(0).get("batch_id")).longValue();
-                return ApiResponse.success(Map.of("type","BATCH","batches",publicBatches("b.batch_id=?",batchId)),"Thông tin truy xuất");
+        String clean = code != null ? code.trim() : "";
+        String withoutLo = (clean.startsWith("LO-") || clean.startsWith("lo-")) ? clean.substring(3) : clean;
+        String withLo = (clean.startsWith("LO-") || clean.startsWith("lo-")) ? clean : "LO-" + clean;
+
+        // 1. Check qr_codes (try clean, withoutLo, withLo)
+        var codes = jdbc.queryForList("""
+            SELECT entity_type, entity_id FROM qr_codes
+            WHERE (public_code = ? OR public_code = ? OR public_code = ?)
+              AND status = 'ACTIVE'
+              AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(3))
+            LIMIT 1
+        """, clean, withoutLo, withLo);
+
+        if (!codes.isEmpty()) {
+            var qr = codes.get(0);
+            long id = ((Number) qr.get("entity_id")).longValue();
+            String entityType = String.valueOf(qr.get("entity_type"));
+            if ("BATCH".equals(entityType)) {
+                return ApiResponse.success(Map.of("type", "BATCH", "batches", publicBatches("b.batch_id=?", id)), "Thông tin truy xuất");
+            } else if ("DELIVERY_PACKAGE".equals(entityType)) {
+                return ApiResponse.success(Map.of("type", "DELIVERY_PACKAGE", "batches",
+                    publicBatches("b.batch_id IN (SELECT ba.batch_id FROM batch_allocations ba JOIN delivery_items d ON d.batch_allocation_id=ba.batch_allocation_id WHERE d.trip_stop_id=?)", id)), "Thông tin kiện hàng");
+            } else {
+                return ApiResponse.success(Map.of("type", "RETURNABLE_ASSET", "assets",
+                    jdbc.queryForList("SELECT asset_code, status, condition_status FROM returnable_assets WHERE asset_id=?", id)), "Thông tin thùng SmartCrate");
             }
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"QR không tồn tại hoặc đã hết hiệu lực");
         }
-        var qr=codes.get(0);long id=((Number)qr.get("entity_id")).longValue();
-        List<Map<String,Object>> batches;
-        if(qr.get("entity_type").equals("BATCH")) batches=publicBatches("b.batch_id=?",id);
-        else if(qr.get("entity_type").equals("DELIVERY_PACKAGE")) batches=publicBatches("b.batch_id IN (SELECT ba.batch_id FROM batch_allocations ba JOIN delivery_items d ON d.batch_allocation_id=ba.batch_allocation_id WHERE d.trip_stop_id=?)",id);
-        else return ApiResponse.success(Map.of("type","RETURNABLE_ASSET","assets",jdbc.queryForList("SELECT asset_code,status,condition_status FROM returnable_assets WHERE asset_id=?",id)),"Thông tin thùng; vị trí và đơn vị giữ chỉ dành cho người có quyền");
-        return ApiResponse.success(Map.of("type",qr.get("entity_type"),"batches",batches),"Thông tin truy xuất đã ghi nhận; QR không phải chứng nhận chất lượng");
+
+        // 2. Check batches by batch_code (case-insensitive, with/without LO-)
+        var batchList = jdbc.queryForList("""
+            SELECT batch_id FROM batches
+            WHERE LOWER(batch_code) = LOWER(?)
+               OR LOWER(batch_code) = LOWER(?)
+               OR LOWER(batch_code) = LOWER(?)
+            ORDER BY batch_id DESC LIMIT 1
+        """, clean, withoutLo, withLo);
+
+        if (!batchList.isEmpty()) {
+            long batchId = ((Number) batchList.get(0).get("batch_id")).longValue();
+            return ApiResponse.success(Map.of("type", "BATCH", "batches", publicBatches("b.batch_id=?", batchId)), "Thông tin truy xuất");
+        }
+
+        // 3. Check supplier-{id}
+        if (clean.toLowerCase().startsWith("supplier-")) {
+            try {
+                long supId = Long.parseLong(clean.substring(9));
+                var supBatches = jdbc.queryForList("SELECT batch_id FROM batches WHERE supplier_id = ? ORDER BY batch_id DESC LIMIT 1", supId);
+                if (!supBatches.isEmpty()) {
+                    long batchId = ((Number) supBatches.get(0).get("batch_id")).longValue();
+                    return ApiResponse.success(Map.of("type", "BATCH", "batches", publicBatches("b.batch_id=?", batchId)), "Thông tin truy xuất HTX");
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 4. Check demo
+        if ("demo".equalsIgnoreCase(clean) || "demo-vietgap".equalsIgnoreCase(clean)) {
+            var anyBatch = jdbc.queryForList("SELECT batch_id FROM batches ORDER BY batch_id DESC LIMIT 1");
+            if (!anyBatch.isEmpty()) {
+                long batchId = ((Number) anyBatch.get(0).get("batch_id")).longValue();
+                var list = publicBatches("b.batch_id=?", batchId);
+                if (!list.isEmpty()) {
+                    return ApiResponse.success(Map.of("type", "BATCH", "batches", list), "Thông tin truy xuất mẫu VietGAP");
+                }
+            }
+            return ApiResponse.success(Map.of("type", "BATCH", "batches", List.of(mockDemoBatch())), "Thông tin truy xuất mẫu VietGAP");
+        }
+
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "QR không tồn tại hoặc đã hết hiệu lực");
+    }
+
+    private Map<String, Object> mockDemoBatch() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("batch_id", 9999L);
+        map.put("batch_code", "LO-20260914-VIETGAP-01");
+        map.put("supplier_id", 1L);
+        map.put("sku_id", 1L);
+        map.put("sku_name", "Cải ngọt chuẩn VietGAP Ba Vì");
+        map.put("pack_description", "Túi 1kg đóng sọt SmartCrate");
+        map.put("image_url", "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600");
+        map.put("organization_name", "Hợp tác xã Nông nghiệp Công nghệ cao Ba Vì");
+        map.put("supplier_tax_code", "0108998822");
+        map.put("supplier_phone", "0988 123 456");
+        map.put("supplier_email", "htx.bavi@freshlink.vn");
+        map.put("variety_name", "Giống Cải ngọt F1 Chánh Nông");
+        map.put("planting_date", "2026-08-10");
+        map.put("packaging_facility", "Nhà sơ chế nông sản sạch Ba Vì, Hà Nội");
+        map.put("harvest_at", "2026-09-14 05:30");
+        map.put("packed_at", "2026-09-14 06:15");
+        map.put("received_at", "2026-09-14 07:00");
+        map.put("declared_quantity", 250.0);
+        map.put("accepted_quantity", 250.0);
+        map.put("batch_status", "ACCEPTED");
+        map.put("trace_note", "Đất phù sa bãi bồi sông Hồng, tưới nước giếng khoan qua hệ thống lọc QCVN 01-1:2018/BYT");
+
+        map.put("vietgap_certificate", Map.of(
+            "document_number", "VG-2026-HN-8899",
+            "certifying_body", "Trung tâm Chứng nhận Phù hợp (QUACERT)",
+            "certification_scope", "Rau ăn lá, củ, quả tươi theo TCVN 11892-1:2017",
+            "issued_date", "2025-06-01",
+            "expiry_date", "2028-06-01",
+            "verification_status", "APPROVED"
+        ));
+
+        map.put("farm_address", Map.of(
+            "address_name", "Vùng trồng rau công nghệ cao Ba Vì",
+            "contact_name", "Nguyễn Văn Hùng (Chủ nhiệm HTX)",
+            "contact_phone", "0988 123 456",
+            "address_line", "Khu 3, Xã Vân Hòa",
+            "ward", "Xã Vân Hòa",
+            "district", "Huyện Ba Vì",
+            "city", "Hà Nội",
+            "latitude", 21.0825,
+            "longitude", 105.3524
+        ));
+
+        map.put("gate_inspection", Map.of(
+            "final_result", "PASS",
+            "accepted_quantity", 250.0,
+            "general_note", "Ngoại quan tươi mới, không dư lượng thuốc BVTV test nhanh, độ ẩm và nhiệt độ thùng SmartCrate đạt 8.5°C chuẩn KCS",
+            "inspected_at", "2026-09-14 07:15"
+        ));
+
+        return map;
     }
     private List<Map<String,Object>> publicBatches(String predicate,long id) {
         var rows=jdbc.queryForList("""

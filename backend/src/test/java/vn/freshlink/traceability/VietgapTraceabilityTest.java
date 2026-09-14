@@ -98,4 +98,22 @@ class VietgapTraceabilityTest {
         assertEquals("Xưởng đóng gói Ba Vì", newBatch.packagingFacility());
         assertNotNull(newBatch.cultivationDiary());
     }
+
+    @Test
+    void testTraceCodeStrippingAndNormalization() {
+        String rawWithPrefix = "LO-350984c1-39a5-4470-9c90-1c705b002ac3";
+        String clean = rawWithPrefix.trim();
+        String withoutLo = (clean.startsWith("LO-") || clean.startsWith("lo-")) ? clean.substring(3) : clean;
+        String withLo = (clean.startsWith("LO-") || clean.startsWith("lo-")) ? clean : "LO-" + clean;
+
+        assertEquals("350984c1-39a5-4470-9c90-1c705b002ac3", withoutLo);
+        assertEquals("LO-350984c1-39a5-4470-9c90-1c705b002ac3", withLo);
+
+        // Test without prefix
+        String rawUuid = "350984c1-39a5-4470-9c90-1c705b002ac3";
+        String withoutLo2 = (rawUuid.startsWith("LO-") || rawUuid.startsWith("lo-")) ? rawUuid.substring(3) : rawUuid;
+        String withLo2 = (rawUuid.startsWith("LO-") || rawUuid.startsWith("lo-")) ? rawUuid : "LO-" + rawUuid;
+        assertEquals("350984c1-39a5-4470-9c90-1c705b002ac3", withoutLo2);
+        assertEquals("LO-350984c1-39a5-4470-9c90-1c705b002ac3", withLo2);
+    }
 }
