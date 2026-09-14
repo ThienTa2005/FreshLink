@@ -4,12 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/http'
-import { ActionForm, DataTable, EvidenceLink, QrButton, type Row, useRows } from '../components/Workspace'
+import { ActionForm, DataTable, EvidenceLink, QrButton, type Row, useRows, options, tomorrow } from '../components/Workspace'
 import { can, display, roleNames } from '../components/permissions'
 import { useUrlTab } from '../components/useUrlTab'
 import { OrderDetail } from './TripPage'
 import TripPage from './TripPage'
-import OperationsPage from './OperationsPage'
 import { SystemCheckPage } from './ManagementPages'
 import { FreshLinkMap, type ColdChainHubPoint, type VehicleMapPoint } from '../components/FreshLinkMap'
 
@@ -344,7 +343,7 @@ export function DashboardPage(){
       allow: can(membership, 'SYSTEM_ADMIN'),
      },
      {
-      to: '/trace',
+      to: '/trace/demo',
       target: '_blank',
       label: 'Tra cứu QR VietGAP',
       icon: 'qr_code_scanner',
@@ -474,8 +473,8 @@ export function AdminPage(){
  const [tab,setTab]=useUrlTab('partners');const [selected,setSelected]=useState<Row>();const [error,setError]=useState('');const [preview,setPreview]=useState<string>();const partners=useRows('/admin/partners')
  return <>{error&&<Alert type="error" message={error}/>}<Tabs activeKey={tab} onChange={setTab} items={[
  {key:'partners',label:'Đối tác',children:<><DataTable path="/admin/partners" rowKey="organization_id" columns={[[ 'organization_name','Đơn vị'],['organization_type','Loại'],['status','Trạng thái']]} actions={r=><Space><Button onClick={()=>setSelected(r)}>Xem / xử lý</Button>{r.status==='PENDING'&&<Button onClick={async()=>{try{await api(`/admin/partners/${r.organization_id}/approve`,'POST');await partners.refetch()}catch(e){setError((e as Error).message)}}}>Duyệt</Button>}</Space>}/>{selected&&<><ActionForm key={String(selected.organization_id)} title={`Xử lý ${selected.organization_name}`} method="PATCH" path={`/admin/partners/${selected.organization_id}/status`} fields={[{name:'status',label:'Trạng thái',type:'select',options:[{value:'REJECTED',label:'Từ chối'},{value:'SUSPENDED',label:'Tạm dừng'},{value:'ACTIVE',label:'Kích hoạt lại'}]},{name:'reason',label:'Lý do',type:'textarea'}]}/><ActionForm title="Yêu cầu bổ sung đăng ký" path={`/admin/partners/${selected.organization_id}/request-information`} fields={[{name:'reason',label:'Nội dung cần bổ sung',type:'textarea'}]}/></>}</>},
- {key:'staff',label:'Nhân viên & quyền',children:<><DataTable path="/admin/staff" rowKey="user_id" columns={[[ 'full_name','Họ tên'],['email','Email'],['roles','Quyền'],['status','Trạng thái']]} actions={r=><Button onClick={()=>setSelected(r)}>Sửa</Button>}/>{selected?.user_id!=null&&<ActionForm key={String(selected.user_id)} title="Cập nhật nhân viên" method="PUT" path={`/admin/staff/${selected.user_id}`} fields={[{name:'fullName',label:'Họ tên',initial:selected.full_name},{name:'status',label:'Trạng thái',type:'select',initial:selected.status,options:[{value:'ACTIVE',label:'Hoạt động'},{value:'DISABLED',label:'Khóa'}]},{name:'roles',label:'Quyền',type:'multiple',initial:selected.roles,options:Object.entries(roleNames).filter(([r])=>['OPERATIONS_COORDINATOR','QUALITY_INSPECTOR','ACCOUNTANT','CUSTOMER_SUPPORT','DRIVER'].includes(r)).map(([value,label])=>({value,label}))}]}/>}<OperationsPage initialTab="partners"/></>},
- {key:'catalog',label:'Danh mục & giá',children:<OperationsPage initialTab="prices"/>},
+ {key:'staff',label:'Nhân viên & quyền',children:<><DataTable path="/admin/staff" rowKey="user_id" columns={[[ 'full_name','Họ tên'],['email','Email'],['roles','Quyền'],['status','Trạng thái']]} actions={r=><Button onClick={()=>setSelected(r)}>Sửa</Button>}/>{selected?.user_id!=null&&<ActionForm key={String(selected.user_id)} title="Cập nhật nhân viên" method="PUT" path={`/admin/staff/${selected.user_id}`} fields={[{name:'fullName',label:'Họ tên',initial:selected.full_name},{name:'status',label:'Trạng thái',type:'select',initial:selected.status,options:[{value:'ACTIVE',label:'Hoạt động'},{value:'DISABLED',label:'Khóa'}]},{name:'roles',label:'Quyền',type:'multiple',initial:selected.roles,options:Object.entries(roleNames).filter(([r])=>['OPERATIONS_COORDINATOR','QUALITY_INSPECTOR','ACCOUNTANT','CUSTOMER_SUPPORT','DRIVER'].includes(r)).map(([value,label])=>({value,label}))}]}/>}<ActionForm title="Thêm tài khoản nhân viên mới" path="/admin/staff" fields={[{name:'email',label:'Email'},{name:'fullName',label:'Họ tên'},{name:'password',label:'Mật khẩu ban đầu (ít nhất 12 ký tự)',type:'password'},{name:'roles',label:'Quyền được cấp',type:'multiple',options:Object.entries(roleNames).filter(([r])=>['OPERATIONS_COORDINATOR','QUALITY_INSPECTOR','ACCOUNTANT','CUSTOMER_SUPPORT','DRIVER'].includes(r)).map(([value,label])=>({value,label}))}]} onDone={()=>setSelected(undefined)}/></>},
+ {key:'catalog',label:'Danh mục & giá',children:<><DataTable path="/operations/catalog" rowKey="sku_id" columns={[['sku_name','Tên SKU'],['sku_code','Mã SKU'],['category_name','Nhóm'],['base_unit','Đơn vị'],['pack_size','Quy cách'],['active','Đang bán']]} /><ActionForm title="Thiết lập đơn giá bán SKU" path="/operations/prices" fields={[{name:'skuId',label:'SKU',type:'select',options:options(useRows('/public/catalog?date='+tomorrow()).data,'sku_id','sku_name')},{name:'price',label:'Đơn giá bán (đ)',type:'number'},{name:'date',label:'Áp dụng từ ngày giao',type:'date',initial:tomorrow()}]}/></>},
  {key:'audit',label:'Nhật ký',children:<DataTable path="/admin/audit-logs" rowKey="audit_log_id" columns={[[ 'actor_email','Người thực hiện'],['action_code','Hành động'],['entity_type','Đối tượng'],['entity_id','Mã nội bộ'],['occurred_at','Thời gian']]}/>},
  {key:'logins',label:'Đăng nhập',children:<DataTable path="/admin/login-history" rowKey="login_history_id" columns={[[ 'email','Email'],['success','Thành công'],['ip_address','Địa chỉ IP'],['occurred_at','Thời gian']]}/>},
  {key:'system',label:'Hệ thống',children:<SystemCheckPage/>},

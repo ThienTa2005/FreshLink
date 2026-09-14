@@ -122,12 +122,42 @@ export default function PortalPage() {
           label: 'Thùng SmartCrate',
           icon: 'all_inbox',
           allow: has('RESTAURANT_MANAGER', 'RESTAURANT_RECEIVER', 'DRIVER', 'OPERATIONS_COORDINATOR')
+        },
+        {
+          key: 'vietgap_docs',
+          label: 'Kiểm định VietGAP HTX',
+          icon: 'verified_user',
+          allow: internal && has('SYSTEM_ADMIN', 'OPERATIONS_COORDINATOR')
+        },
+        {
+          key: 'coop_rankings',
+          label: 'Xếp hạng Tín nhiệm HTX',
+          icon: 'military_tech',
+          allow: internal && has('SYSTEM_ADMIN', 'OPERATIONS_COORDINATOR')
+        },
+        {
+          key: 'passport',
+          label: 'Hồ sơ & Chứng nhận VietGAP',
+          icon: 'badge',
+          allow: supplier && has('SUPPLIER_MANAGER')
+        },
+        {
+          key: 'trust',
+          label: '⭐ Điểm Tín Nhiệm HTX',
+          icon: 'grade',
+          allow: supplier && has('SUPPLIER_MANAGER', 'SUPPLIER_STAFF')
         }
       ]
     },
     {
       group: 'Tài chính & Hệ thống',
       items: [
+        {
+          key: 'greenCert',
+          label: '🌿 Chứng nhận Xanh & ESG',
+          icon: 'eco',
+          allow: !internal && (supplier || has('RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER'))
+        },
         {
           key: supplier ? 'settlements' : 'invoices',
           label: supplier ? 'Đối soát NCC' : 'Tài chính & Hóa đơn',
@@ -188,12 +218,39 @@ export default function PortalPage() {
     content = <DetailPage type={root} id={Number(id)} />
   } else if (root === 'invoices') {
     content = <InvoicesPage restaurantId={internal ? undefined : m.organizationId} accountant={has('ACCOUNTANT')} />
+  } else if (root === 'vietgap_docs') {
+    content = <OperationsPage initialTab="vietgap_docs" />
+  } else if (root === 'coop_rankings') {
+    content = <OperationsPage initialTab="coop_rankings" />
+  } else if (root === 'greenCert') {
+    content = supplier ? (
+      <SupplierPage organizationId={m.organizationId} initialTab="greenCert" />
+    ) : (
+      <RestaurantPage organizationId={m.organizationId} initialTab="greenCert" />
+    )
   } else if (supplier) {
-    content = <SupplierPage organizationId={m.organizationId} initialTab={root === 'batches' ? 'batches' : root === 'settlements' ? 'billing' : root === 'products' ? 'products' : 'requests'} />
+    content = (
+      <SupplierPage
+        organizationId={m.organizationId}
+        initialTab={
+          root === 'batches' ? 'batches' :
+          root === 'settlements' ? 'billing' :
+          root === 'products' ? 'products' :
+          root === 'supply-requests' ? 'requests' :
+          root === 'passport' ? 'passport' :
+          root === 'trust' ? 'trust' :
+          'products'
+        }
+      />
+    )
   } else if (!internal) {
     content = <RestaurantPage organizationId={m.organizationId} initialTab={root === 'orders' ? (id === 'new' ? 'order' : 'orders') : root} />
   } else if (root === 'trips') {
-    content = <TripPage canOptimize={has('OPERATIONS_COORDINATOR')} />
+    content = has('OPERATIONS_COORDINATOR') ? (
+      <OperationsPage initialTab="trips" />
+    ) : (
+      <TripPage canOptimize={false} />
+    )
   } else if (root === 'assets' && has('DRIVER') && !has('OPERATIONS_COORDINATOR')) {
     content = (
       <Card title="Thùng luân chuyển SmartCrate">
@@ -202,7 +259,7 @@ export default function PortalPage() {
       </Card>
     )
   } else {
-    content = <OperationsPage initialTab={({ orders: 'overview', 'supply-requests': 'source', batches: 'gate', claims: 'claims', assets: 'assets' } as Record<string, string>)[root]} />
+    content = <OperationsPage initialTab={({ orders: 'overview', 'supply-requests': 'source', batches: 'gate', claims: 'claims', assets: 'assets', trips: 'trips', vietgap_docs: 'vietgap_docs', coop_rankings: 'coop_rankings' } as Record<string, string>)[root] ?? 'overview'} />
   }
 
   function go(path: string) {
@@ -372,12 +429,11 @@ export default function PortalPage() {
 
         {/* Main Content Area */}
         <main className="portal-content" onChangeCapture={() => setDirty(true)}>
-          {/* Breadcrumb & Route Indicator */}
+          {/* Breadcrumb Indicator */}
           <div className="breadcrumbs">
             <Link to="/portal/dashboard">FreshLink Portal</Link>
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>chevron_right</span>
             <span style={{ color: '#176b45', fontWeight: 700 }}>{currentLabel}</span>
-            <span className="route-badge">route: /portal/{segment}</span>
           </div>
 
           {pendingOffline > 0 && (

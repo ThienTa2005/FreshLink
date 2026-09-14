@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Alert, Button, Card, Input, Space, Statistic, Tabs, Tag } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/http'
@@ -14,6 +14,7 @@ import { CoopTrustScoreModal } from '../components/CoopTrustScoreModal'
 export default function OperationsPage({ initialTab }: { initialTab?: string }) {
   const { membership } = useAuth(); const roles = membership?.roles ?? []
   const [tab,setTab]=useUrlTab(initialTab??(roles.includes('QUALITY_INSPECTOR')?'gate':roles.includes('CUSTOMER_SUPPORT')?'claims':roles.includes('ACCOUNTANT')?'billing':'overview'))
+  useEffect(() => { if (initialTab) setTab(initialTab) }, [initialTab, setTab])
   const can = (role: string) => roles.includes('SYSTEM_ADMIN') || roles.includes(role)
   const [date, setDate] = useState(tomorrow()); const [error, setError] = useState(''); const client = useQueryClient()
   const [aiModalOpen, setAiModalOpen] = useState(false)
@@ -412,9 +413,6 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
           </>
         )
       }] : []),
-      ...(can('SYSTEM_ADMIN') ? [{ key: 'partners', label: 'Tài khoản', children: <><DataTable path="/admin/partners/pending" rowKey="organization_id" columns={[[ 'organization_name', 'Đơn vị' ], ['organization_type', 'Loại']]} actions={r => <Button onClick={async () => { try { await api(`/admin/partners/${r.organization_id}/approve`, 'POST'); await client.invalidateQueries() } catch (e) { setError((e as Error).message) } }}>Duyệt hồ sơ</Button>} /><ActionForm title="Tài khoản nhân viên" path="/admin/staff" fields={[
-        { name: 'email', label: 'Email' }, { name: 'fullName', label: 'Họ tên' }, { name: 'password', label: 'Mật khẩu ban đầu (ít nhất 12 ký tự)', type: 'password' }, { name: 'roles', label: 'Quyền được cấp', type: 'multiple', options: [{ value: 'OPERATIONS_COORDINATOR', label: 'Điều phối' }, { value: 'QUALITY_INSPECTOR', label: 'Kiểm hàng' }, { value: 'ACCOUNTANT', label: 'Kế toán' }, { value: 'CUSTOMER_SUPPORT', label: 'Chăm sóc khách hàng' }, { value: 'DRIVER', label: 'Tài xế' }] },
-      ]} /></> }] : []),
     ]} />
     <CoopTrustScoreModal supplierId={selectedTrustSupplierId} supplierName={selectedTrustSupplierName} open={trustModalOpen} onClose={() => setTrustModalOpen(false)} />
   </>
