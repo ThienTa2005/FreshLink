@@ -113,3 +113,65 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, key?:
 export async function apiGet<T>(path: string): Promise<ApiResponse<T>> {
   return { success: true, data: await api<T>(path), message: '', timestamp: new Date().toISOString() }
 }
+
+export interface MatchedItem {
+  skuId: number
+  skuCode: string
+  skuName: string
+  baseUnit: string
+  packSize: number
+  packDescription: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  gradeType: string
+  rescueReason?: string
+  discountPercent?: number
+  matchStatus: 'EXACT' | 'HIGH' | 'PARTIAL'
+  matchScore: number
+  originalText: string
+}
+
+export interface DetectedItem {
+  detectedName: string
+  quantity: number
+  unit: string
+  notes: string
+}
+
+export interface SmartOcrResult {
+  matchedItems: MatchedItem[]
+  unmatchedItems: DetectedItem[]
+  totalDetected: number
+  totalMatched: number
+  estimatedGrandTotal: number
+  scanSource: string
+  notes: string
+}
+
+export interface SmartOcrSample {
+  title: string
+  tag: string
+  content: string
+}
+
+export async function scanSmartOcrFile(file: File, date?: string): Promise<SmartOcrResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (date) formData.append('date', date)
+  const response = await fetchWithTimeout(`${API_URL}/ordering/smart-ocr/scan`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  return readResponse<SmartOcrResult>(response)
+}
+
+export async function scanSmartOcrText(text: string, date?: string): Promise<SmartOcrResult> {
+  return api<SmartOcrResult>('/ordering/smart-ocr/scan-text', 'POST', { text, date })
+}
+
+export async function getSmartOcrSamples(): Promise<SmartOcrSample[]> {
+  return api<SmartOcrSample[]>('/ordering/smart-ocr/samples')
+}
+

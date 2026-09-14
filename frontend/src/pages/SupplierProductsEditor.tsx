@@ -46,6 +46,9 @@ export function SupplierProductsEditor({ organizationId }: { organizationId: num
       step: 1,
       storageTemperatureNote: '+2°C ~ +6°C',
       shelfLifeHours: 72,
+      gradeType: 'GRADE_A',
+      discountPercent: 0,
+      rescueReason: '',
     })
     setModalOpen(true)
   }
@@ -69,6 +72,9 @@ export function SupplierProductsEditor({ organizationId }: { organizationId: num
       step: prod.quantity_step ? Number(prod.quantity_step) : 1,
       storageTemperatureNote: prod.storage_temperature_note || '+2°C ~ +6°C',
       shelfLifeHours: prod.shelf_life_hours ? Number(prod.shelf_life_hours) : 72,
+      gradeType: prod.grade_type || 'GRADE_A',
+      rescueReason: prod.rescue_reason || '',
+      discountPercent: prod.discount_percent ? Number(prod.discount_percent) : 0,
     })
     setModalOpen(true)
   }
@@ -164,10 +170,15 @@ export function SupplierProductsEditor({ organizationId }: { organizationId: num
                         style={{ height: 160, borderRadius: 10 }}
                         showBadge={!hasCustomImage}
                       />
-                      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4 }}>
+                      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <Tag color="green" style={{ borderRadius: 4, fontWeight: 700, fontSize: 10.5 }}>
                           {String(prod.category_name || 'Nông sản')}
                         </Tag>
+                        {prod.grade_type === 'GRADE_B_RESCUE' && (
+                          <Tag color="orange" style={{ borderRadius: 4, fontWeight: 700, fontSize: 10.5 }}>
+                            🥕 Xấu mã -{Number(prod.discount_percent ?? 30)}%
+                          </Tag>
+                        )}
                       </div>
                       <div style={{ position: 'absolute', top: 8, right: 8 }}>
                         {hasCustomImage ? (
@@ -303,6 +314,60 @@ export function SupplierProductsEditor({ organizationId }: { organizationId: num
               </Form.Item>
             </Col>
           </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="gradeType" label={<b style={{ fontSize: 13 }}>Phân loại chất lượng</b>} rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: 'GRADE_A', label: '⭐ Chuẩn Loại 1 (Mẫu mã đẹp, đồng đều)' },
+                    { value: 'GRADE_B_RESCUE', label: '🥕 Xấu mã / Giải cứu (Imperfect Produce)' }
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prevValues, currentValues) => prevValues.gradeType !== currentValues.gradeType}
+              >
+                {({ getFieldValue }) =>
+                  getFieldValue('gradeType') === 'GRADE_B_RESCUE' ? (
+                    <Form.Item
+                      name="discountPercent"
+                      label={<b style={{ color: '#ea580c' }}>Mức giảm giá giải cứu (% chiết khấu)</b>}
+                      rules={[{ required: true, message: 'Nhập % giảm giá (thường 20% - 50%)' }]}
+                    >
+                      <InputNumber min={5} max={80} step={5} style={{ width: '100%' }} placeholder="Ví dụ: 35" addonAfter="%" />
+                    </Form.Item>
+                  ) : null
+                }
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.gradeType !== currentValues.gradeType}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('gradeType') === 'GRADE_B_RESCUE' ? (
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+                  <Form.Item
+                    name="rescueReason"
+                    label={<span style={{ color: '#9a3412', fontWeight: 600 }}>Lý do ngoại hình xấu mã (Cam kết bên trong tươi ngon 100%)</span>}
+                    rules={[{ required: true, message: 'Vui lòng mô tả lý do ngoại hình' }]}
+                    style={{ marginBottom: 4 }}
+                  >
+                    <Input placeholder="Ví dụ: Dưa hấu cong nhẹ, ổi xước vỏ do mưa gió, cam sành quả nhỏ..." />
+                  </Form.Item>
+                  <small style={{ color: '#c2410c' }}>
+                    🌱 Nông sản xấu mã bán chạy cho các quán nước ép, quán ăn bình dân và góp phần cắt giảm lãng phí thực phẩm.
+                  </small>
+                </div>
+              ) : null
+            }
+          </Form.Item>
 
           <Row gutter={16}>
             <Col xs={24} sm={12}>

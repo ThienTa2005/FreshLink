@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Input, InputNumber, Select, Space, Table, Tabs, Switch, Tag, Spin } from 'antd'
+import { Alert, Button, Card, Input, InputNumber, Select, Space, Table, Tabs, Switch, Tag, Spin, Tooltip } from 'antd'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/http'
@@ -11,6 +11,7 @@ import { WeeklyEditor } from './WeeklyEditor'
 import { ProductImage } from '../components/ProductImage'
 import { CoopTrustScoreModal } from '../components/CoopTrustScoreModal'
 import { GreenCertificateModal, type GreenCertificateData, type EsgSummaryData } from '../components/GreenCertificateModal'
+import { SmartOcrModal } from '../components/SmartOcrModal'
 
 export default function RestaurantPage({organizationId,initialTab='orders'}:{organizationId:number;initialTab?:string}){
  const {membership}=useAuth();const purchaser=can(membership,'RESTAURANT_MANAGER','RESTAURANT_PURCHASER');const manager=can(membership,'RESTAURANT_MANAGER');const receiver=can(membership,'RESTAURANT_MANAGER','RESTAURANT_RECEIVER')
@@ -20,6 +21,7 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  const [weeklyPlanId,setPlan]=useState<number>();const [editId,setEdit]=useState<number>();const [name,setName]=useState('Đơn thường mua');const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [request,setRequest]=useState({hash:'',key:crypto.randomUUID()})
  const [trustModalOpen, setTrustModalOpen] = useState(false); const [selectedSupplierId, setSelectedSupplierId] = useState<number>(); const [selectedSupplierName, setSelectedSupplierName] = useState<string>()
  const [certModalOpen, setCertModalOpen] = useState(false); const [certData, setCertData] = useState<GreenCertificateData | null>(null); const [esgPeriod, setEsgPeriod] = useState<string>('60_DAYS'); const [esgLoading, setEsgLoading] = useState(false); const [esgSummary, setEsgSummary] = useState<EsgSummaryData | null>(null)
+ const [ocrModalOpen, setOcrModalOpen] = useState(false); const [gradeFilter, setGradeFilter] = useState<'ALL' | 'GRADE_A' | 'GRADE_B_RESCUE'>('ALL')
  const catalog=useRows('/public/catalog?date='+date,purchaser);const addresses=useRows('/addresses?organizationId='+organizationId);const orders=useRows('/orders?restaurantId='+organizationId)
  const saved=useRows('/restaurants/'+organizationId+'/saved-orders',purchaser);const policy=useQuery({queryKey:['policy',organizationId],queryFn:()=>api<Row>('/restaurants/'+organizationId+'/policy')})
  const windowQuery=useQuery({queryKey:['order-window'],queryFn:()=>api<{earliestDate:string;cutoff:string}>('/public/order-window')})
@@ -47,15 +49,34 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  async function save(kind:string){setBusy(true);setError('');try{await api('/restaurants/'+organizationId+'/saved-orders','POST',{name:kind==='CART'?'Giỏ hiện tại':kind==='FAVORITES'?'Yêu thích':name,kind,payload:{cart,address:actualAddress,startTime,endTime,ids:favorites,prices:Object.fromEntries((catalog.data??[]).map(s=>[s.sku_id,s.price]))}});await saved.refetch();window.dispatchEvent(new Event('freshlink:saved'))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function loadOrder(id:number,edit=false){setError('');try{const o=await api<Row>('/orders/'+id);setCart(Object.fromEntries((o.items as Row[]).map(i=>[String(i.sku_id),Number(i.requested_quantity)])));setOldPrices(Object.fromEntries((o.items as Row[]).map(i=>[String(i.sku_id),Number(i.unit_price)])));setAddress(Number(o.delivery_address_id));setStart(String(o.receiving_start_time));setEnd(String(o.receiving_end_time));setDate(edit?String(o.delivery_date):earliest);setEdit(edit?id:undefined);setPlan(undefined);setTab('order')}catch(e){setError((e as Error).message)}}
  async function submit(draft:boolean){setBusy(true);setError('');const body={restaurantId:organizationId,addressId:actualAddress,date,startTime,endTime,weeklyPlanId,items:chosen.map(([id,quantity])=>({skuId:Number(id),quantity})),draft};const hash=JSON.stringify(body);const key=request.hash===hash?request.key:crypto.randomUUID();setRequest({hash,key});try{const id=editId??await api<number>('/orders','POST',body,key);if(editId)await api('/orders/'+id,'PUT',body);await client.invalidateQueries();window.dispatchEvent(new Event('freshlink:saved'));navigate('/portal/orders/'+id)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ const handleOcrAddToCart = (items: { skuId: number; quantity: number }[]) => {
+   setCart(prev => {
+     const next = { ...prev }
+     for (const item of items) {
+       next[String(item.skuId)] = (next[String(item.skuId)] ?? 0) + item.quantity
+     }
+     return next
+   })
+ }
  const allowedTabs=purchaser?['order','orders','weekly','templates','greenCert',...(manager?['profile','policy','billing']:[]),...(receiver?['claims','assets']:[])]:['orders','greenCert','claims','assets']
  return <>{error&&<Alert type="error" message={error} showIcon/>}<Tabs activeKey={allowedTabs.includes(tab)?tab:'orders'} onChange={setTab} items={[
- ...(purchaser?[{key:'order',label:editId?'Sửa đơn':'Đặt hàng',children:<Card title={editId?'Chỉnh sửa đơn trước khi giữ nguồn':'Chọn hàng và ngày nhận'}><Space wrap><Input type="date" min={earliest} value={date} onChange={e=>setDate(e.target.value)}/><Input placeholder="Tìm sản phẩm" value={search} onChange={e=>setSearch(e.target.value)}/><Select allowClear placeholder="Nhóm hàng" value={category} onChange={setCategory} style={{minWidth:150}} options={Array.from(new Map((catalog.data??[]).map(x=>[x.category_id,{value:Number(x.category_id),label:String(x.category_name)}])).values())}/><Switch checked={onlyFavorites} onChange={setOnlyFavorites}/>Chỉ hàng thường mua</Space><p>Chốt lúc {windowQuery.data?.cutoff??'17:00'} ngày trước giao. Giá giữ trên đơn khi xác nhận; nguồn còn cần điều phối.</p>{catalog.error&&<Alert type="error" message={catalog.error.message}/>}
- <Table<Row> rowKey="sku_id" dataSource={catalog.data?.filter(s=>(!category||s.category_id===category)&&String(s.sku_name).toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi'))&&(!onlyFavorites||favorites.includes(Number(s.sku_id))))} loading={catalog.isPending} pagination={{pageSize:20}} scroll={{x:750}} columns={[
+ ...(purchaser?[{key:'order',label:editId?'Sửa đơn':'Đặt hàng',children:<Card title={editId?'Chỉnh sửa đơn trước khi giữ nguồn':'Chọn hàng và ngày nhận'}><Space wrap><Input type="date" min={earliest} value={date} onChange={e=>setDate(e.target.value)}/><Input placeholder="Tìm sản phẩm" value={search} onChange={e=>setSearch(e.target.value)}/><Select allowClear placeholder="Nhóm hàng" value={category} onChange={setCategory} style={{minWidth:150}} options={Array.from(new Map((catalog.data??[]).map(x=>[x.category_id,{value:Number(x.category_id),label:String(x.category_name)}])).values())}/><Select value={gradeFilter} onChange={setGradeFilter} style={{minWidth:210}} options={[{value:'ALL',label:'🥦 Tất cả phân loại'},{value:'GRADE_A',label:'⭐ Chuẩn Loại 1 (Đẹp)'},{value:'GRADE_B_RESCUE',label:'🥕 Xấu mã / Săn giá rẻ (-30% đến -40%)'}]}/><Button type="primary" onClick={()=>setOcrModalOpen(true)} style={{background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>📸 AI Nhận diện Ghi chú / Hóa đơn</Button><Switch checked={onlyFavorites} onChange={setOnlyFavorites}/>Chỉ hàng thường mua</Space><p>Chốt lúc {windowQuery.data?.cutoff??'17:00'} ngày trước giao. Giá giữ trên đơn khi xác nhận; nguồn còn cần điều phối.</p>{catalog.error&&<Alert type="error" message={catalog.error.message}/>}
+ <Table<Row> rowKey="sku_id" dataSource={catalog.data?.filter(s=>(!category||s.category_id===category)&&(gradeFilter==='ALL'||s.grade_type===gradeFilter)&&String(s.sku_name).toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi'))&&(!onlyFavorites||favorites.includes(Number(s.sku_id))))} loading={catalog.isPending} pagination={{pageSize:20}} scroll={{x:750}} columns={[
  {title:'Thường mua',width:80,render:(_,s)=><Button onClick={()=>setFavorites(f=>f.includes(Number(s.sku_id))?f.filter(id=>id!==Number(s.sku_id)):[...f,Number(s.sku_id)])}>{favorites.includes(Number(s.sku_id))?'★':'☆'}</Button>},
  {title:'Ảnh',width:70,render:(_,s)=><ProductImage src={s.image_url as string|null} alt={String(s.sku_name)} size={48}/>},
  {title:'Sản phẩm / quy cách',render:(_,s)=><>
    <div style={{fontWeight:600}}>{String(s.sku_name)}</div>
    <small style={{display:'block',color:'#64748b'}}>{String(s.pack_description)} · {String(s.base_unit)} · Tối thiểu {String(s.minimum_order_quantity)} · Bước {String(s.quantity_step)}</small>
+   {s.grade_type==='GRADE_B_RESCUE' && (
+     <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
+       <Tooltip title={String(s.rescue_reason||'Nông sản ngoại hình bất đối xứng nhưng chất lượng tươi ngon 100%, giảm giá sốc')}>
+         <Tag color="orange" style={{fontWeight:700,borderRadius:6,cursor:'pointer',margin:0}}>
+           🥕 Xấu mã -{Number(s.discount_percent??30)}%
+         </Tag>
+       </Tooltip>
+       <Tag color="cyan" style={{margin:0,fontSize:11}}>🌱 Tiết kiệm lãng phí</Tag>
+     </div>
+   )}
    {(s.supplier_name || s.supplier_score) && (
      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
        <Tag
@@ -74,7 +95,7 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
      </div>
    )}
  </>},
- {title:'Giá',render:(_,s)=><>{s.price==null?'Chưa có giá':display(s.price,'price')}{oldPrices[String(s.sku_id)]!=null&&oldPrices[String(s.sku_id)]!==Number(s.price)&&<small style={{display:'block',color:'#ad6800'}}>Giá cũ: {display(oldPrices[String(s.sku_id)],'price')}</small>}</>},
+ {title:'Giá',render:(_,s)=><>{s.price==null?'Chưa có giá':display(s.price,'price')}{s.grade_type==='GRADE_B_RESCUE'&&<small style={{display:'block',color:'#ea580c',fontWeight:600}}>Đã giảm -{Number(s.discount_percent??30)}%</small>}{oldPrices[String(s.sku_id)]!=null&&oldPrices[String(s.sku_id)]!==Number(s.price)&&<small style={{display:'block',color:'#ad6800'}}>Giá cũ: {display(oldPrices[String(s.sku_id)],'price')}</small>}</>},
  {title:'Số lượng',render:(_,s)=><InputNumber min={0} step={Number(s.quantity_step)} disabled={s.price==null} value={cart[String(s.sku_id)]??0} onChange={v=>setCart({...cart,[String(s.sku_id)]:v??0})}/>}]}/>
  {invalid.length>0&&<Alert type="warning" message="Có hàng ngừng bán, chưa có giá hoặc sai quy cách. Điều chỉnh trước khi lưu." description={invalid.map(([id,q])=><p key={id}>{String(catalog.data?.find(s=>String(s.sku_id)===id)?.sku_name??'Hàng không còn khả dụng')} · {q} <Button onClick={()=>setCart({...cart,[id]:0})}>Bỏ khỏi giỏ</Button></p>)}/>}
  <Space wrap><Select placeholder="Địa chỉ nhận" style={{minWidth:220}} value={actualAddress} options={options(addresses.data?.filter(a=>a.address_type==='DELIVERY'),'address_id','address_name')} onChange={v=>setAddress(Number(v))}/><Input type="time" value={startTime} onChange={e=>setStart(e.target.value)}/><Input type="time" value={endTime} onChange={e=>setEnd(e.target.value)}/></Space>{!actualAddress&&<Alert type="info" message={manager?'Thêm địa chỉ tại mục Địa chỉ để đặt đơn.':'Nhờ quản lý thêm địa chỉ giao hàng trước khi đặt.'}/>}
@@ -152,5 +173,6 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
   ]}/>
   <CoopTrustScoreModal supplierId={selectedSupplierId} supplierName={selectedSupplierName} open={trustModalOpen} onClose={()=>setTrustModalOpen(false)} />
   <GreenCertificateModal open={certModalOpen} onClose={()=>setCertModalOpen(false)} data={certData} />
+  <SmartOcrModal open={ocrModalOpen} onClose={()=>setOcrModalOpen(false)} onAddToCart={handleOcrAddToCart} currentDate={date} />
   </>
 }

@@ -2,6 +2,7 @@ package vn.freshlink.catalog;
 
 import java.math.BigDecimal;
 import java.time.*;
+import java.util.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,10 +16,17 @@ public class CatalogController {
     private final JdbcTemplate jdbc;
     private final vn.freshlink.common.Sql sql;
     public CatalogController(JdbcTemplate jdbc, vn.freshlink.common.Sql sql) {this.jdbc=jdbc;this.sql=sql;}
-    @GetMapping("/public/catalog") public ApiResponse<?> catalog(@RequestParam LocalDate date) {
-        return ApiResponse.success(jdbc.queryForList("""
+    @GetMapping("/public/catalog") public ApiResponse<?> catalog(
+        @RequestParam LocalDate date,
+        @RequestParam(required = false) String grade
+    ) {
+        String gradeFilter = (grade != null && !grade.isBlank()) ? " AND p.grade_type = ? " : "";
+        String sqlQuery = """
             SELECT s.sku_id,s.product_id,s.sku_code,s.sku_name,s.base_unit,s.pack_size,s.pack_description,s.minimum_order_quantity,s.quantity_step,c.category_id,
               p.description,p.image_url,p.storage_temperature_note,p.shelf_life_hours,p.supplier_id,c.category_name,
+              COALESCE(p.grade_type, 'GRADE_A') AS grade_type,
+              p.rescue_reason,
+              COALESCE(p.discount_percent, 0) AS discount_percent,
               supp_org.organization_name AS supplier_name,
               COALESCE(sp.supplier_score, 92.5) AS supplier_score,
               COALESCE(sp.tier_rank, 'DIAMOND_AAA') AS tier_rank,
@@ -33,8 +41,17 @@ public class CatalogController {
             JOIN product_categories c ON c.category_id=p.category_id
             LEFT JOIN organizations supp_org ON supp_org.organization_id=p.supplier_id
             LEFT JOIN supplier_profiles sp ON sp.supplier_id=p.supplier_id
-            WHERE s.active=TRUE AND p.active=TRUE AND c.active=TRUE ORDER BY s.sku_id
-            """,java.sql.Timestamp.from(date.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant()),java.sql.Timestamp.from(date.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant()),date),"Danh mục theo ngày giao");
+            WHERE s.active=TRUE AND p.active=TRUE AND c.active=TRUE""" + gradeFilter + """
+            ORDER BY s.sku_id
+            """;
+
+        var ts = java.sql.Timestamp.from(date.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());
+        List<Object> params = new ArrayList<>(List.of(ts, ts, date));
+        if (grade != null && !grade.isBlank()) {
+            params.add(grade.trim());
+        }
+
+        return ApiResponse.success(jdbc.queryForList(sqlQuery, params.toArray()), "Danh mục theo ngày giao");
     }
     public record Price(@NotNull Long skuId,@NotNull @DecimalMin("0") @Digits(integer=13,fraction=2) BigDecimal price,@NotNull LocalDate date) {}
     @PostMapping("/operations/prices") public ApiResponse<?> price(@AuthenticationPrincipal Actor actor,@Valid @RequestBody Price p) {
@@ -60,6 +77,9 @@ public class CatalogController {
         @NotNull Long categoryId,
         @NotBlank @Size(max=40) String productCode,
         @NotBlank @Size(max=150) String name,
+        String gradeType,
+        String rescueReason,
+        Integer discountPercent,
         String description,
         String imageUrl,
         Long imageFileId,
@@ -77,6 +97,7 @@ public class CatalogController {
         if (supplierId != null) {
             return ApiResponse.success(jdbc.queryForList("""
                 SELECT p.product_id,p.category_id,c.category_name,p.product_code,p.product_name,
+                       COALESCE(p.grade_type, 'GRADE_A') AS grade_type, p.rescue_reason, COALESCE(p.discount_percent, 0) AS discount_percent,
                        p.description,p.image_url,p.storage_temperature_note,p.shelf_life_hours,
                        p.active,p.supplier_id,s.sku_id,s.sku_code,s.sku_name,s.base_unit,
                        s.pack_size,s.pack_description,s.minimum_order_quantity,s.quantity_step
@@ -89,6 +110,7 @@ public class CatalogController {
         }
         return ApiResponse.success(jdbc.queryForList("""
             SELECT p.product_id,p.category_id,c.category_name,p.product_code,p.product_name,
+                   COALESCE(p.grade_type, 'GRADE_A') AS grade_type, p.rescue_reason, COALESCE(p.discount_percent, 0) AS discount_percent,
                    p.description,p.image_url,p.storage_temperature_note,p.shelf_life_hours,
                    p.active,p.supplier_id,s.sku_id,s.sku_code,s.sku_name,s.base_unit,
                    s.pack_size,s.pack_description,s.minimum_order_quantity,s.quantity_step
@@ -108,10 +130,12 @@ public class CatalogController {
         } else {
             a.requireRole("OPERATIONS_COORDINATOR", "SUPPLIER_MANAGER");
         }
+        String grade = (r.gradeType() != null && !r.gradeType().isBlank()) ? r.gradeType() : "GRADE_A";
+        int discount = (r.discountPercent() != null) ? Math.max(0, Math.min(100, r.discountPercent())) : 0;
         long product = sql.insert("""
-            INSERT INTO products(category_id,supplier_id,product_code,product_name,description,image_url,image_file_id,storage_temperature_note,shelf_life_hours)
-            VALUES (?,?,?,?,?,?,?,?,?)
-            """, r.categoryId(), orgId, r.productCode(), r.name(), r.description(), r.imageUrl(), r.imageFileId(),
+            INSERT INTO products(category_id,supplier_id,product_code,product_name,grade_type,rescue_reason,discount_percent,description,image_url,image_file_id,storage_temperature_note,shelf_life_hours)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            """, r.categoryId(), orgId, r.productCode(), r.name(), grade, r.rescueReason(), discount, r.description(), r.imageUrl(), r.imageFileId(),
             r.storageTemperatureNote() != null ? r.storageTemperatureNote() : "+2°C ~ +6°C",
             r.shelfLifeHours() != null ? r.shelfLifeHours() : 72);
         long sku = sql.insert("""
@@ -131,11 +155,13 @@ public class CatalogController {
         } else {
             a.requireRole("OPERATIONS_COORDINATOR", "SUPPLIER_MANAGER");
         }
+        String grade = (r.gradeType() != null && !r.gradeType().isBlank()) ? r.gradeType() : "GRADE_A";
+        int discount = (r.discountPercent() != null) ? Math.max(0, Math.min(100, r.discountPercent())) : 0;
         jdbc.update("""
-            UPDATE products SET category_id=?, product_name=?, description=?, image_url=?, image_file_id=?,
-              storage_temperature_note=?, shelf_life_hours=?
+            UPDATE products SET category_id=?, product_name=?, grade_type=?, rescue_reason=?, discount_percent=?,
+              description=?, image_url=?, image_file_id=?, storage_temperature_note=?, shelf_life_hours=?
             WHERE product_id=?
-            """, r.categoryId(), r.name(), r.description(), r.imageUrl(), r.imageFileId(),
+            """, r.categoryId(), r.name(), grade, r.rescueReason(), discount, r.description(), r.imageUrl(), r.imageFileId(),
             r.storageTemperatureNote(), r.shelfLifeHours(), id);
         jdbc.update("""
             UPDATE product_skus SET sku_name=?, base_unit=?, pack_size=?, pack_description=?,
