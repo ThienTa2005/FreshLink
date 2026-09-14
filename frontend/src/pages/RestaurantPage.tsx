@@ -59,7 +59,6 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
     if(f && Array.isArray(f.ids)) setFavorites(f.ids as number[])
   }
  },[saved.data,restored])
- useEffect(()=>{if(initialTab) setTab(initialTab)},[initialTab, setTab])
  useEffect(()=>{
   if(tab!=='greenCert') return
   setEsgLoading(true)

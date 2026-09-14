@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Alert, Button, Card, Input, Space, Statistic, Tabs, Tag } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/http'
@@ -13,8 +13,9 @@ import { CoopTrustScoreModal } from '../components/CoopTrustScoreModal'
 
 export default function OperationsPage({ initialTab }: { initialTab?: string }) {
   const { membership } = useAuth(); const roles = membership?.roles ?? []
-  const [tab,setTab]=useUrlTab(initialTab??(roles.includes('QUALITY_INSPECTOR')?'gate':roles.includes('CUSTOMER_SUPPORT')?'claims':roles.includes('ACCOUNTANT')?'billing':'overview'))
-  useEffect(() => { if (initialTab) setTab(initialTab) }, [initialTab, setTab])
+  const defaultTab = initialTab ?? (roles.includes('QUALITY_INSPECTOR') ? 'gate' : roles.includes('CUSTOMER_SUPPORT') ? 'claims' : roles.includes('ACCOUNTANT') ? 'billing' : 'overview')
+  const [tab, setTab] = useUrlTab(defaultTab)
+  const activeTab = tab === 'batches' ? 'gate' : tab
   const can = (role: string) => roles.includes('SYSTEM_ADMIN') || roles.includes(role)
   const [date, setDate] = useState(tomorrow()); const [error, setError] = useState(''); const client = useQueryClient()
   const [aiModalOpen, setAiModalOpen] = useState(false)
@@ -41,7 +42,7 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
 
   return <><Space wrap className="action-card"><strong>Ngày vận hành</strong><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Space>
     {error && <Alert type="error" message={error} />}{lookup.error && <Alert type="error" message={lookup.error.message} />}
-    <Tabs activeKey={tab} onChange={setTab} items={[
+    <Tabs activeKey={activeTab} onChange={setTab} items={[
       ...(can('OPERATIONS_COORDINATOR') ? [
         { key: 'overview', label: 'Tổng quan', children: <>
           <div className="stat-grid">{[['shortages', 'Đơn thiếu nguồn'], ['waitingBatches', 'Lô chờ kiểm'], ['trips', 'Chuyến chưa xong'], ['claims', 'Khiếu nại chờ xử lý']].map(([key, title]) => <Card key={key}><Statistic title={title} value={dashboard.data?.[key] ?? 0} loading={dashboard.isPending} /></Card>)}</div>

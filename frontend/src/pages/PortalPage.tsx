@@ -28,8 +28,9 @@ export default function PortalPage() {
 
   const unreadQuery = useQuery({
     queryKey: ['notifications-unread'],
-    queryFn: () => api<{ unread_count: number }>('/notifications/unread-count'),
-    refetchInterval: 30000
+    queryFn: () => api<{ unread_count: number }>('/notifications/unread-count').catch(() => ({ unread_count: 0 })),
+    refetchInterval: 30000,
+    enabled: Boolean(user && membership)
   })
 
   const m = membership

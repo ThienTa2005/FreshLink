@@ -54,10 +54,6 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
   const [esgSummary, setEsgSummary] = useState<EsgSummaryData | null>(null)
 
   useEffect(() => {
-    if (initialTab) setTab(initialTab)
-  }, [initialTab, setTab])
-
-  useEffect(() => {
     if (tab !== 'greenCert') return
     setEsgLoading(true)
     api<EsgSummaryData>(`/esg/summary?organizationId=${organizationId}&periodType=${esgPeriod}`)
