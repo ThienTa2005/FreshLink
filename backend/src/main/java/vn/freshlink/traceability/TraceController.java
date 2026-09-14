@@ -175,7 +175,7 @@ public class TraceController {
             JOIN product_skus s ON s.sku_id=b.sku_id
             JOIN products p ON p.product_id=s.product_id
             JOIN organizations o ON o.organization_id=b.supplier_id
-            WHERE """+predicate,id);
+            WHERE """ + " " + predicate, id);
 
         List<Map<String,Object>> results=new ArrayList<>();
         for(var row:rows) {

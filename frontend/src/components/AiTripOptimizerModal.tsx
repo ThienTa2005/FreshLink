@@ -464,7 +464,7 @@ export const AiTripOptimizerModal: React.FC<Props> = ({
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <strong style={{ fontSize: 13, color: '#1e293b' }}>{o.restaurantName}</strong>
-                            <Tag color="cyan" style={{ margin: 0, fontSize: 11 }}>{o.receivingStartTime.slice(0, 5)} - {o.receivingEndTime.slice(0, 5)}</Tag>
+                            <Tag color="cyan" style={{ margin: 0, fontSize: 11 }}>{(o.receivingStartTime || '07:00').slice(0, 5)} - {(o.receivingEndTime || '09:00').slice(0, 5)}</Tag>
                           </div>
                           <div style={{ fontSize: 12, color: '#64748b', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                             {o.addressLine}, {o.district}, {o.city}

@@ -41,8 +41,9 @@ public class CatalogController {
             JOIN product_categories c ON c.category_id=p.category_id
             LEFT JOIN organizations supp_org ON supp_org.organization_id=p.supplier_id
             LEFT JOIN supplier_profiles sp ON sp.supplier_id=p.supplier_id
-            WHERE s.active=TRUE AND p.active=TRUE AND c.active=TRUE""" + gradeFilter + """
-            ORDER BY s.sku_id
+            WHERE s.active=TRUE AND p.active=TRUE AND c.active=TRUE
+            """ + gradeFilter + """
+             ORDER BY s.sku_id
             """;
 
         var ts = java.sql.Timestamp.from(date.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());

@@ -30,7 +30,35 @@ export default function RestaurantPage({organizationId,initialTab='orders'}:{org
  const invalid=chosen.filter(([id,q])=>{const s=catalog.data?.find(x=>String(x.sku_id)===id);return !s||s.price==null||q<Number(s.minimum_order_quantity)||Math.abs((q-Number(s.minimum_order_quantity))/Number(s.quantity_step)-Math.round((q-Number(s.minimum_order_quantity))/Number(s.quantity_step)))>0.00001})
  const total=chosen.reduce((sum,[id,q])=>sum+q*Number(catalog.data?.find(s=>String(s.sku_id)===id)?.price??0),0)
  const [restored,setRestored]=useState(false)
- useEffect(()=>{if(!saved.data||restored)return;setRestored(true);const draft=saved.data.find(x=>x.kind==='CART');if(draft){const p=draft.payload as Row;setCart(p.cart as Record<string,number>??{});setAddress(p.address as number);setStart(String(p.startTime??'07:00'));setEnd(String(p.endTime??'09:00'))}const fav=saved.data.find(x=>x.kind==='FAVORITES');if(fav)setFavorites((fav.payload as Row).ids as number[]??[])},[saved.data,restored])
+ useEffect(()=>{
+  if(!saved.data||restored)return
+  setRestored(true)
+  const draft=saved.data.find(x=>x.kind==='CART')
+  if(draft && draft.payload){
+    let p: Row = {}
+    try {
+      p = (typeof draft.payload === 'string' ? JSON.parse(draft.payload) : draft.payload) as Row || {}
+    } catch {
+      p = {}
+    }
+    if(p && typeof p === 'object'){
+      if(p.cart && typeof p.cart === 'object') setCart(p.cart as Record<string,number>)
+      if(p.address != null) setAddress(p.address as number)
+      if(p.startTime) setStart(String(p.startTime))
+      if(p.endTime) setEnd(String(p.endTime))
+    }
+  }
+  const fav=saved.data.find(x=>x.kind==='FAVORITES')
+  if(fav && fav.payload){
+    let f: Row = {}
+    try {
+      f = (typeof fav.payload === 'string' ? JSON.parse(fav.payload) : fav.payload) as Row || {}
+    } catch {
+      f = {}
+    }
+    if(f && Array.isArray(f.ids)) setFavorites(f.ids as number[])
+  }
+ },[saved.data,restored])
  useEffect(()=>{if(initialTab) setTab(initialTab)},[initialTab, setTab])
  useEffect(()=>{
   if(tab!=='greenCert') return
