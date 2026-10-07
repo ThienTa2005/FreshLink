@@ -17,7 +17,7 @@ import vn.freshlink.identity.Actor;
 @Service
 public class OrderingService {
     private final JdbcTemplate jdbc; private final Sql sql; private final Idempotency dedup;
-    @Value("${app.order.cutoff:17:00}") private LocalTime cutoff;
+    @Value("${app.order.cutoff:22:00}") private LocalTime cutoff;
     public OrderingService(JdbcTemplate jdbc,Sql sql,Idempotency dedup) {this.jdbc=jdbc;this.sql=sql;this.dedup=dedup;}
     public record Line(@NotNull Long skuId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity) {}
     public record Create(@NotNull Long restaurantId,@NotNull Long addressId,@NotNull LocalDate date,

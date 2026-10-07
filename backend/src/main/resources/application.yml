@@ -38,6 +38,8 @@ app:
   demo:
     enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:}
+  order:
+    cutoff: ${ORDER_CUTOFF:22:00}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   cloudinary:
     url: ${CLOUDINARY_URL:}

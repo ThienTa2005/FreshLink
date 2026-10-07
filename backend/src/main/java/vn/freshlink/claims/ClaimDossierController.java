@@ -31,7 +31,8 @@ public class ClaimDossierController {
         @RequestParam(required=false) String status,
         @RequestParam(required=false) String department,
         @RequestParam(required=false) Long assignedTo,
-        @RequestParam(required=false) Boolean slaOverdue
+        @RequestParam(required=false) Boolean slaOverdue,
+        @RequestParam(required=false) Boolean overdueOnly
     ) {
         actor.requireRole("CUSTOMER_SUPPORT", "SYSTEM_ADMIN");
         StringBuilder query = new StringBuilder("""
@@ -58,7 +59,7 @@ public class ClaimDossierController {
             query.append(" AND c.assigned_to = ?");
             args.add(assignedTo);
         }
-        if (Boolean.TRUE.equals(slaOverdue)) {
+        if (Boolean.TRUE.equals(slaOverdue) || Boolean.TRUE.equals(overdueOnly)) {
             query.append(" AND ( (c.first_responded_at IS NULL AND c.first_response_due_at < UTC_TIMESTAMP(3)) OR (c.status NOT IN ('RESOLVED','CLOSED') AND c.resolution_due_at < UTC_TIMESTAMP(3)) )");
         }
 
@@ -179,29 +180,38 @@ public class ClaimDossierController {
         return ApiResponse.success(id, "Đã chuyển việc sang bộ phận " + r.department());
     }
 
-    public record CloseRequest(@NotBlank @Size(max=500) String reason) {}
+    public record CloseRequest(String reason, String finalResolution, BigDecimal refundAmount) {
+        public String effectiveReason() {
+            if (finalResolution != null && !finalResolution.isBlank()) return finalResolution;
+            if (reason != null && !reason.isBlank()) return reason;
+            return "Đã đóng hồ sơ khiếu nại";
+        }
+    }
 
     @PostMapping("/{id}/close")
     @Transactional
     public ApiResponse<?> close(
         @AuthenticationPrincipal Actor actor,
         @PathVariable long id,
-        @Valid @RequestBody CloseRequest r
+        @RequestBody CloseRequest r
     ) {
         actor.requireRole("CUSTOMER_SUPPORT", "SYSTEM_ADMIN");
         var claim = jdbc.queryForList("SELECT * FROM complaints WHERE complaint_id=? FOR UPDATE", id);
         if (claim.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại");
 
+        String effReason = r != null ? r.effectiveReason() : "Đã đóng hồ sơ khiếu nại";
+        String noteContent = effReason + (r != null && r.refundAmount() != null && r.refundAmount().signum() > 0 ? " [Hoàn tiền: " + r.refundAmount().toPlainString() + " đ]" : "");
+
         jdbc.update("""
             UPDATE complaints
-            SET status='CLOSED', closed_at=UTC_TIMESTAMP(3), final_resolution=COALESCE(final_resolution, ?)
+            SET status='CLOSED', closed_at=UTC_TIMESTAMP(3), final_resolution=COALESCE(?, final_resolution)
             WHERE complaint_id=?
-            """, r.reason(), id);
+            """, effReason, id);
 
         sql.insert("""
             INSERT INTO complaint_notes(complaint_id, author_user_id, content, is_internal)
             VALUES (?, ?, CONCAT('[ĐÓNG HỒ SƠ]: ', ?), FALSE)
-            """, id, actor.userId(), r.reason());
+            """, id, actor.userId(), noteContent);
 
         return ApiResponse.success(id, "Đã đóng hồ sơ khiếu nại");
     }

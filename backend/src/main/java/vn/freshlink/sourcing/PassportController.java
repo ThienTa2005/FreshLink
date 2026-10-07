@@ -13,7 +13,8 @@ import vn.freshlink.common.api.ApiResponse;
 @RestController @RequestMapping("/api/supplier/passport")
 public class PassportController {
     private final JdbcTemplate jdbc;private final Sql sql;private final MediaController media;
-    public PassportController(JdbcTemplate jdbc,Sql sql,MediaController media) {this.jdbc=jdbc;this.sql=sql;this.media=media;}
+    private final vn.freshlink.ocr.SmartOcrService smartOcr;
+    public PassportController(JdbcTemplate jdbc,Sql sql,MediaController media,vn.freshlink.ocr.SmartOcrService smartOcr) {this.jdbc=jdbc;this.sql=sql;this.media=media;this.smartOcr=smartOcr;}
     @GetMapping public ApiResponse<?> get(@AuthenticationPrincipal Actor a,@RequestParam long supplierId) {
         a.requireOrganization(supplierId,"SUPPLIER_MANAGER","SUPPLIER_STAFF","OPERATIONS_COORDINATOR","SYSTEM_ADMIN");
         return ApiResponse.success(jdbc.queryForList("SELECT d.supplier_document_id,d.document_type,d.document_number,d.certifying_body,d.certification_scope,d.issued_date,d.expiry_date,d.verification_status,d.rejection_reason,f.original_name,d.file_id FROM supplier_documents d JOIN media_files f ON f.file_id=d.file_id WHERE d.supplier_id=? ORDER BY d.supplier_document_id DESC",supplierId),"Hồ sơ nhà cung cấp");
@@ -46,5 +47,20 @@ public class PassportController {
             "hasApprovedVietgap",hasApproved,
             "document",hasApproved?docs.get(0):java.util.Map.of()
         ),"Trạng thái kiểm định VietGAP");
+    }
+
+    public record OcrCertRequest(@NotNull Long fileId) {}
+    @PostMapping("/ocr-cert") public ApiResponse<?> ocrCert(@AuthenticationPrincipal Actor a, @Valid @RequestBody OcrCertRequest r) {
+        media.requireOwned(a, r.fileId());
+        var file = jdbc.queryForMap("SELECT original_name, mime_type, file_path FROM media_files WHERE file_id = ?", r.fileId());
+        byte[] bytes = new byte[0];
+        try {
+            java.io.File diskFile = new java.io.File((String) file.get("file_path"));
+            if (diskFile.exists()) {
+                bytes = java.nio.file.Files.readAllBytes(diskFile.toPath());
+            }
+        } catch (Exception ignored) {}
+        var result = smartOcr.processCertificateImage(bytes, (String) file.get("mime_type"), (String) file.get("original_name"));
+        return ApiResponse.success(result, "Trích xuất thông tin chứng chỉ thành công");
     }
 }

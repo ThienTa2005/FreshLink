@@ -101,12 +101,11 @@ public class EsgCertificateService {
                 co2SavedKg = Math.round(((plasticSavedKg * 0.22) + (kmOptimized * 0.33)) * 10.0) / 10.0;
                 count = orderCount;
             } else {
-                // Benchmark demonstration model matching user's exact specification
-                cratesCirculated = 600;
-                plasticSavedKg = 150.0;
-                kmOptimized = 48.0;
-                co2SavedKg = 45.0;
-                count = 24;
+                cratesCirculated = 0;
+                plasticSavedKg = 0.0;
+                kmOptimized = 0.0;
+                co2SavedKg = 0.0;
+                count = 0;
             }
 
         } else {
@@ -132,11 +131,11 @@ public class EsgCertificateService {
                 co2SavedKg = Math.round(((plasticSavedKg * 0.20) + (kmOptimized * 0.25)) * 10.0) / 10.0;
                 count = batchCount;
             } else {
-                cratesCirculated = 800;
-                plasticSavedKg = 200.0;
-                kmOptimized = 65.0;
-                co2SavedKg = 60.0;
-                count = 32;
+                cratesCirculated = 0;
+                plasticSavedKg = 0.0;
+                kmOptimized = 0.0;
+                co2SavedKg = 0.0;
+                count = 0;
             }
         }
 

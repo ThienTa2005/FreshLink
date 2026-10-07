@@ -189,6 +189,7 @@ public class TraceController {
                        issued_date, expiry_date, verification_status, file_id
                 FROM supplier_documents
                 WHERE supplier_id=? AND document_type='VIETGAP' AND verification_status='APPROVED'
+                  AND (expiry_date IS NULL OR expiry_date >= CURRENT_DATE())
                 ORDER BY supplier_document_id DESC LIMIT 1
             """,supplierId);
             map.put("vietgap_certificate",!certs.isEmpty()?certs.get(0):null);
@@ -237,6 +238,21 @@ public class TraceController {
             } else {
                 map.put("gate_inspection",null);
             }
+
+            // 5. Delivery tracking history (Nhóm 6)
+            var deliveryHistory = jdbc.queryForList("""
+                SELECT dt.trip_code, dt.trip_date, ts.stop_sequence, ts.status AS stop_status,
+                       ts.actual_arrival_at, org.organization_name AS destination_name, co.order_id
+                FROM batch_allocations ba
+                JOIN delivery_items di ON di.batch_allocation_id = ba.batch_allocation_id
+                JOIN trip_stops ts ON ts.trip_stop_id = di.trip_stop_id
+                JOIN delivery_trips dt ON dt.trip_id = ts.trip_id
+                JOIN customer_orders co ON co.order_id = ts.order_id
+                JOIN organizations org ON org.organization_id = co.restaurant_id
+                WHERE ba.batch_id = ?
+                ORDER BY dt.trip_date DESC, ts.actual_arrival_at DESC LIMIT 5
+            """, batchId);
+            map.put("delivery_history", deliveryHistory);
 
             results.add(map);
         }

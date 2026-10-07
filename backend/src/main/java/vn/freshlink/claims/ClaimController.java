@@ -23,7 +23,15 @@ public class ClaimController {
             var row=jdbc.queryForMap("SELECT i.order_id,o.restaurant_id,ba.allocated_quantity FROM order_items i JOIN customer_orders o ON o.order_id=i.order_id JOIN batch_allocations ba ON ba.order_item_id=i.order_item_id WHERE i.order_item_id=? AND ba.batch_id=?",r.orderItemId(),r.batchId());
             a.requireOrganization(((Number)row.get("restaurant_id")).longValue(),"RESTAURANT_MANAGER","RESTAURANT_RECEIVER");
             if(r.quantity().compareTo((BigDecimal)row.get("allocated_quantity"))>0) throw new IllegalArgumentException("Lượng khiếu nại vượt lượng từ lô đã cấp");
-            long claim=sql.insert("INSERT INTO complaints(complaint_code,order_id,restaurant_id,complaint_type,description,requested_resolution,submitted_by) VALUES (?,?,?,'QUALITY',?,'OTHER',?)","CL-"+UUID.randomUUID().toString().substring(0,24),row.get("order_id"),row.get("restaurant_id"),r.description(),a.userId());
+            long claim=sql.insert("""
+                INSERT INTO complaints(
+                    complaint_code, order_id, restaurant_id, complaint_type, description,
+                    requested_resolution, submitted_by, first_response_due_at, resolution_due_at, assigned_department
+                ) VALUES (
+                    ?, ?, ?, 'QUALITY', ?,
+                    'OTHER', ?, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 2 HOUR), DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 24 HOUR), 'CSKH'
+                )
+                ""","CL-"+UUID.randomUUID().toString().substring(0,24),row.get("order_id"),row.get("restaurant_id"),r.description(),a.userId());
             jdbc.update("INSERT INTO complaint_items(complaint_id,order_item_id,batch_id,affected_quantity,evidence_file_id) VALUES (?,?,?,?,?)",claim,r.orderItemId(),r.batchId(),r.quantity(),r.evidenceId());return claim;
         });return ApiResponse.success(id,"Đã gửi khiếu nại");
     }

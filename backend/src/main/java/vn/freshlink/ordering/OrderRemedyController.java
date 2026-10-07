@@ -195,6 +195,10 @@ public class OrderRemedyController {
             BigDecimal subQty = (BigDecimal) rem.get("substitute_quantity");
             jdbc.update("UPDATE order_items SET substitution_note=CONCAT('Đổi sang SKU #', ?, ' x ', ?) WHERE order_item_id=?",
                 subSku, subQty, itemId);
+        } else if ("REDELIVERY".equals(type)) {
+            jdbc.update("UPDATE customer_orders SET order_status='READY_FOR_DELIVERY' WHERE order_id=?", orderId);
+            jdbc.update("UPDATE order_items SET item_status='CONFIRMED', notes=CONCAT(COALESCE(notes,''), ' [Giao bù ', ?, ']') WHERE order_item_id=?",
+                affectedQty, itemId);
         }
 
         // Recompute order totals

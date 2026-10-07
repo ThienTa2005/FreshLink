@@ -23,12 +23,17 @@ public class SettlementController {
             BigDecimal quantity=(BigDecimal)batch.get("accepted_quantity");
             if(quantity.signum()<=0) throw new IllegalArgumentException("Lô chưa có lượng đạt để đối soát");
             BigDecimal gross=quantity.multiply((BigDecimal)batch.get("supplier_unit_price")).setScale(2,RoundingMode.HALF_UP);
-            BigDecimal commission=gross.multiply((BigDecimal)batch.get("commission_rate")).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
+            var suppScoreRows=jdbc.queryForList("SELECT supplier_score FROM supplier_profiles WHERE supplier_id=?",batch.get("supplier_id"));
+            double trustScore=suppScoreRows.isEmpty()||suppScoreRows.get(0).get("supplier_score")==null?85.0:((Number)suppScoreRows.get(0).get("supplier_score")).doubleValue();
+            BigDecimal feePerKg=trustScore>95.0?new BigDecimal("1000"):new BigDecimal("1500");
+            BigDecimal commission=quantity.multiply(feePerKg).setScale(2,RoundingMode.HALF_UP);
+            BigDecimal commRate=gross.signum()>0?commission.multiply(new BigDecimal("100")).divide(gross,2,RoundingMode.HALF_UP):BigDecimal.ZERO;
+            if(commRate.compareTo(new BigDecimal("100"))>0) commRate=new BigDecimal("100");
             BigDecimal net=gross.subtract(commission).add(r.adjustment());
             if(net.signum()<0) throw new IllegalArgumentException("Giá trị đối soát không được âm");
             long id=sql.insert("INSERT INTO supplier_settlements(settlement_code,supplier_id,period_start,period_end,gross_goods_amount,commission_amount,adjustment_amount,payable_amount,status,created_by) VALUES (?,?,UTC_DATE(),UTC_DATE(),?,?,?,?,'CONFIRMED',?)","ST-"+UUID.randomUUID(),batch.get("supplier_id"),gross,commission,r.adjustment(),net,a.userId());
-            jdbc.update("INSERT INTO settlement_items(settlement_id,batch_id,delivered_quantity,supplier_unit_price,gross_amount,commission_rate,commission_amount,adjustment_amount,net_amount,note) VALUES (?,?,?,?,?,?,?,?,?,?)",id,r.batchId(),quantity,batch.get("supplier_unit_price"),gross,batch.get("commission_rate"),commission,r.adjustment(),net,r.note());
-            jdbc.update("INSERT INTO audit_logs(actor_user_id,action_code,entity_type,entity_id,new_data) VALUES (?,'CONFIRM_SETTLEMENT','SETTLEMENT',?,JSON_OBJECT('reason',?,'adjustment',?))",a.userId(),id,r.note(),r.adjustment());return id;
+            jdbc.update("INSERT INTO settlement_items(settlement_id,batch_id,delivered_quantity,supplier_unit_price,gross_amount,commission_rate,commission_amount,adjustment_amount,net_amount,note) VALUES (?,?,?,?,?,?,?,?,?,?)",id,r.batchId(),quantity,batch.get("supplier_unit_price"),gross,commRate,commission,r.adjustment(),net,r.note());
+            jdbc.update("INSERT INTO audit_logs(actor_user_id,action_code,entity_type,entity_id,new_data) VALUES (?,'CONFIRM_SETTLEMENT','SETTLEMENT',?,JSON_OBJECT('reason',?,'adjustment',?,'feePerKg',?))",a.userId(),id,r.note(),r.adjustment(),feePerKg);return id;
         }),"Đã chốt đối soát theo lượng đạt tại Gate");
     }
     @GetMapping("/settlements") public ApiResponse<?> list(@AuthenticationPrincipal Actor a,@RequestParam(required=false) Long supplierId) {
@@ -49,11 +54,14 @@ public class SettlementController {
                 FOR UPDATE
                 """,r.supplierId(),r.periodStart(),r.periodEnd());
             if(batches.isEmpty())throw new IllegalArgumentException("Không có lô hàng đạt mới nào trong kỳ để đối soát");
+            var suppScoreRows=jdbc.queryForList("SELECT supplier_score FROM supplier_profiles WHERE supplier_id=?",r.supplierId());
+            double trustScore=suppScoreRows.isEmpty()||suppScoreRows.get(0).get("supplier_score")==null?85.0:((Number)suppScoreRows.get(0).get("supplier_score")).doubleValue();
+            BigDecimal feePerKg=trustScore>95.0?new BigDecimal("1000"):new BigDecimal("1500");
             BigDecimal totalGross=BigDecimal.ZERO,totalCommission=BigDecimal.ZERO;
             for(var b:batches){
-                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price"),commRate=(BigDecimal)b.get("commission_rate");
+                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price");
                 BigDecimal gross=qty.multiply(price).setScale(2,RoundingMode.HALF_UP);
-                BigDecimal commission=gross.multiply(commRate).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
+                BigDecimal commission=qty.multiply(feePerKg).setScale(2,RoundingMode.HALF_UP);
                 totalGross=totalGross.add(gross);totalCommission=totalCommission.add(commission);
             }
             BigDecimal totalNet=totalGross.subtract(totalCommission).add(r.adjustment());
@@ -63,9 +71,11 @@ public class SettlementController {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED', ?)
                 ""","ST-"+UUID.randomUUID(),r.supplierId(),r.periodStart(),r.periodEnd(),totalGross,totalCommission,r.adjustment(),totalNet,a.userId());
             for(var b:batches){
-                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price"),commRate=(BigDecimal)b.get("commission_rate");
+                BigDecimal qty=(BigDecimal)b.get("accepted_quantity"),price=(BigDecimal)b.get("supplier_unit_price");
                 BigDecimal gross=qty.multiply(price).setScale(2,RoundingMode.HALF_UP);
-                BigDecimal commission=gross.multiply(commRate).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
+                BigDecimal commission=qty.multiply(feePerKg).setScale(2,RoundingMode.HALF_UP);
+                BigDecimal commRate=gross.signum()>0?commission.multiply(new BigDecimal("100")).divide(gross,2,RoundingMode.HALF_UP):BigDecimal.ZERO;
+                if(commRate.compareTo(new BigDecimal("100"))>0) commRate=new BigDecimal("100");
                 BigDecimal net=gross.subtract(commission);
                 jdbc.update("""
                     INSERT INTO settlement_items(settlement_id, batch_id, delivered_quantity, supplier_unit_price, gross_amount, commission_rate, commission_amount, adjustment_amount, net_amount, note)

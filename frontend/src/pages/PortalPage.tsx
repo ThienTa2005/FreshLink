@@ -153,11 +153,12 @@ export default function PortalPage() {
     {
       group: 'Tài chính & Hệ thống',
       items: [
+        // Chức năng Chứng nhận Xanh đã được ẩn cho tất cả các role theo yêu cầu chốt
         {
           key: 'greenCert',
           label: '🌿 Chứng nhận Xanh & ESG',
           icon: 'eco',
-          allow: !internal && (supplier || has('RESTAURANT_MANAGER', 'RESTAURANT_PURCHASER'))
+          allow: false
         },
         {
           key: supplier ? 'settlements' : 'invoices',

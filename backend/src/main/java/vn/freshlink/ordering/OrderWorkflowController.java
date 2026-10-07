@@ -19,7 +19,7 @@ import vn.freshlink.identity.Actor;
 @RestController @RequestMapping("/api/orders")
 public class OrderWorkflowController {
     private final JdbcTemplate jdbc; private final Sql sql;
-    @Value("${app.order.cutoff:17:00}") private LocalTime cutoff;
+    @Value("${app.order.cutoff:22:00}") private LocalTime cutoff;
     public OrderWorkflowController(JdbcTemplate jdbc,Sql sql){this.jdbc=jdbc;this.sql=sql;}
     public record Item(@NotNull Long skuId,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity){}
     public record Update(@NotNull Long addressId,@NotNull LocalDate date,@NotNull LocalTime startTime,@NotNull LocalTime endTime,@Size(max=1000) String note,@NotEmpty @Size(max=100) List<@Valid Item> items){}

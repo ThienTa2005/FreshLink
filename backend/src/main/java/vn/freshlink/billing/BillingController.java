@@ -35,7 +35,12 @@ public class BillingController {
         });return ApiResponse.success(id,"Đã ghi nhận thanh toán thủ công");
     }
     @GetMapping("/suppliers") public ApiResponse<?> suppliers(@AuthenticationPrincipal Actor a,@RequestParam(required=false) Long supplierId) {
-        String query="SELECT b.batch_id,b.batch_code,b.supplier_id,b.accepted_quantity,i.supplier_unit_price,i.commission_rate,ROUND(b.accepted_quantity*i.supplier_unit_price*(1-i.commission_rate/100),2) AS payable FROM batches b JOIN supply_request_items i ON i.supply_request_item_id=b.supply_request_item_id WHERE b.accepted_quantity>0";
+        String query="SELECT b.batch_id,b.batch_code,b.supplier_id,b.accepted_quantity,i.supplier_unit_price, " +
+            "(CASE WHEN COALESCE(sp.supplier_score, 0) > 95 THEN 1000.00 ELSE 1500.00 END) AS fee_per_kg, " +
+            "ROUND(b.accepted_quantity * (CASE WHEN COALESCE(sp.supplier_score, 0) > 95 THEN 1000.00 ELSE 1500.00 END), 2) AS commission_amount, " +
+            "ROUND(b.accepted_quantity * i.supplier_unit_price - b.accepted_quantity * (CASE WHEN COALESCE(sp.supplier_score, 0) > 95 THEN 1000.00 ELSE 1500.00 END), 2) AS payable " +
+            "FROM batches b JOIN supply_request_items i ON i.supply_request_item_id=b.supply_request_item_id " +
+            "LEFT JOIN supplier_profiles sp ON sp.supplier_id=b.supplier_id WHERE b.accepted_quantity>0";
         if(supplierId!=null) {a.requireOrganization(supplierId,"SUPPLIER_MANAGER");return ApiResponse.success(jdbc.queryForList(query+" AND b.supplier_id=? ORDER BY b.batch_id DESC LIMIT 200",supplierId),"Giá trị hàng đạt để đối soát");}
         a.requireRole("ACCOUNTANT");return ApiResponse.success(jdbc.queryForList(query+" ORDER BY b.batch_id DESC LIMIT 200"),"Giá trị hàng đạt để đối soát");
     }

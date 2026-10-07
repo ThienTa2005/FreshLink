@@ -41,7 +41,7 @@ export default function FloatingSupportWidget() {
     const welcomeText = !user
       ? 'Xin chào! Tôi là Trợ lý AI FreshLink (Gemini). Bạn cần tìm hiểu về giải pháp chuỗi lạnh B2B, quy cách rau củ VietGAP hay cách thức đăng ký hợp tác?'
       : orgType === 'RESTAURANT'
-        ? `Xin chào ${user.fullName || 'quý khách'}! Trợ lý Bếp & Thu mua sẵn sàng hỗ trợ đặt hàng, giờ chốt 17:00, quy định khiếu nại hoặc kiểm tra hóa đơn của ${orgName || 'nhà hàng'}.`
+        ? `Xin chào ${user.fullName || 'quý khách'}! Trợ lý Bếp & Thu mua sẵn sàng hỗ trợ đặt hàng, giờ chốt 22:00, quy định khiếu nại hoặc kiểm tra hóa đơn của ${orgName || 'nhà hàng'}.`
         : orgType === 'SUPPLIER'
           ? `Xin chào ${user.fullName || 'đối tác'}! Trợ lý HTX sẵn sàng hỗ trợ tiếp nhận yêu cầu cung ứng, hướng dẫn tạo lô & in mã QR VietGAP, chuẩn tiếp nhận Gate QC.`
           : isDriver

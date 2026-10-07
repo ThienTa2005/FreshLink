@@ -36,13 +36,36 @@ interface FarmAddress {
   contact_phone?: string
 }
 
+interface InspectionItem {
+  criterion_code?: string
+  criterion_name?: string
+  result?: string
+  note?: string
+}
+
+interface DeliveryHistoryItem {
+  trip_code?: string
+  trip_date?: string
+  stop_sequence?: number
+  stop_status?: string
+  actual_arrival_at?: string
+  destination_name?: string
+  order_id?: number
+}
+
 interface GateInspection {
   final_result?: string
   general_note?: string
   evidence_file_id?: number
+  accepted_quantity?: number
+  review_quantity?: number
+  rejected_quantity?: number
+  inspected_at?: string
+  items?: InspectionItem[]
 }
 
 interface TraceBatchRow {
+  batch_id?: number
   batch_code?: string
   sku_name?: string
   organization_name?: string
@@ -55,6 +78,8 @@ interface TraceBatchRow {
   harvest_at?: string
   declared_quantity?: number
   accepted_quantity?: number
+  review_quantity?: number
+  rejected_quantity?: number
   batch_status?: string
   trace_note?: string
   packaging_facility?: string
@@ -64,6 +89,7 @@ interface TraceBatchRow {
   farm_address?: FarmAddress
   cultivation_diary?: CultivationItem[]
   gate_inspection?: GateInspection
+  delivery_history?: DeliveryHistoryItem[]
 }
 
 export default function TracePage() {
@@ -425,7 +451,7 @@ export default function TracePage() {
                   {
                     key: 'variety',
                     label: <strong>Giống cây trồng cụ thể</strong>,
-                    children: <strong style={{ color: '#176b45' }}>{row.variety_name ?? 'Cải thìa F1 cao sản chịu nhiệt Nhật Bản'}</strong>
+                    children: <strong style={{ color: '#176b45' }}>{row.variety_name ?? 'Chưa cập nhật giống cụ thể'}</strong>
                   },
                   {
                     key: 'pack',
@@ -435,12 +461,12 @@ export default function TracePage() {
                   {
                     key: 'planting',
                     label: <strong>Ngày xuống giống</strong>,
-                    children: row.planting_date ?? '10/08/2026'
+                    children: row.planting_date ?? 'Chưa cập nhật'
                   },
                   {
                     key: 'harvest',
                     label: <strong>Thời điểm thu hoạch</strong>,
-                    children: row.harvest_at ? new Date(row.harvest_at).toLocaleString('vi-VN') : 'Sáng sớm 05:30 (thu hoạch thủ công)'
+                    children: row.harvest_at ? new Date(row.harvest_at).toLocaleString('vi-VN') : 'Đang cập nhật'
                   },
                   {
                     key: 'declared_qty',
@@ -521,17 +547,17 @@ export default function TracePage() {
                   {
                     key: 'facility',
                     label: <strong>Cơ sở sơ chế & đóng gói</strong>,
-                    children: row.packaging_facility ?? 'Nhà xưởng sơ chế & đóng gói đạt chuẩn HACCP FreshLink'
+                    children: row.packaging_facility ?? 'Chưa cập nhật cơ sở đóng gói'
                   },
                   {
                     key: 'packed_at',
                     label: <strong>Thời điểm đóng gói</strong>,
-                    children: row.packed_at ? new Date(row.packed_at).toLocaleString('vi-VN') : 'Đóng gói trong 2 giờ sau thu hoạch'
+                    children: row.packed_at ? new Date(row.packed_at).toLocaleString('vi-VN') : 'Đang cập nhật'
                   },
                   {
                     key: 'received_at',
                     label: <strong>Tiếp nhận tại Cổng Gate</strong>,
-                    children: row.received_at ? new Date(row.received_at).toLocaleString('vi-VN') : 'Đã kiểm nhận tại FreshLink Gate Hub'
+                    children: row.received_at ? new Date(row.received_at).toLocaleString('vi-VN') : 'Chưa qua Gate (Đang vận chuyển)'
                   },
                   {
                     key: 'temp',

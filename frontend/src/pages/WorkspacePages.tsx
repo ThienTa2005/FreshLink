@@ -396,7 +396,7 @@ function ClaimDossierDetail({id}:{id:number}){
 
  async function postNote(){if(!noteContent.trim())return;setBusy(true);setError('');try{await api(`/claims/${id}/notes`,'POST',{content:noteContent,isInternal});setNoteContent('');await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function delegate(){setBusy(true);setError('');try{await api(`/claims/${id}/delegate`,'POST',{department:delegateDept,note:`Chuyển tiếp xử lý: ${delegateDept}`});await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
- async function closeCase(){if(!resolution.trim())return;setBusy(true);setError('');try{await api(`/claims/${id}/close`,'POST',{finalResolution:resolution,refundAmount});setCloseModal(false);await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function closeCase(){if(!resolution.trim())return;setBusy(true);setError('');try{await api(`/claims/${id}/close`,'POST',{reason:resolution,finalResolution:resolution,refundAmount});setCloseModal(false);await q.refetch()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
 
  return <Card title={<Space><span>Hồ sơ khiếu nại 360° #{id}</span><span className={`tag ${complaint.status==='CLOSED'?'tag-green':'tag-gold'}`}>{display(complaint.status)}</span></Space>} loading={q.isPending}>
   {error&&<Alert type="error" message={error} style={{marginBottom:12}}/>}

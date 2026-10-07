@@ -1,6 +1,7 @@
 package vn.freshlink.catalog;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import jakarta.validation.Valid;
@@ -33,6 +34,10 @@ public class CatalogController {
               CASE WHEN (SELECT COUNT(*) FROM supplier_documents sd WHERE sd.supplier_id=p.supplier_id AND sd.document_type='VIETGAP' AND sd.verification_status='APPROVED') > 0 THEN TRUE ELSE FALSE END AS has_vietgap,
               (SELECT pr.selling_unit_price FROM sku_prices pr WHERE pr.sku_id=s.sku_id AND pr.district IS NULL
                 AND pr.valid_from<=? AND (pr.valid_to IS NULL OR pr.valid_to>?) ORDER BY pr.valid_from DESC,pr.sku_price_id DESC LIMIT 1) AS price,
+              (SELECT MIN(o.supplier_unit_price) FROM supplier_sku_offers o
+                WHERE o.sku_id=s.sku_id AND o.available_date=? AND o.status IN ('AVAILABLE','PARTIALLY_RESERVED')) AS min_offer_price,
+              (SELECT MAX(o.supplier_unit_price) FROM supplier_sku_offers o
+                WHERE o.sku_id=s.sku_id AND o.available_date=? AND o.status IN ('AVAILABLE','PARTIALLY_RESERVED')) AS max_offer_price,
               (SELECT COALESCE(SUM(o.available_quantity-o.reserved_quantity),0) FROM supplier_sku_offers o
                 JOIN organizations org ON org.organization_id=o.supplier_id
                 WHERE o.sku_id=s.sku_id AND o.available_date=? AND org.status='ACTIVE' AND o.status IN ('AVAILABLE','PARTIALLY_RESERVED')) AS available_quantity
@@ -47,12 +52,28 @@ public class CatalogController {
             """;
 
         var ts = java.sql.Timestamp.from(date.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());
-        List<Object> params = new ArrayList<>(List.of(ts, ts, date));
+        List<Object> params = new ArrayList<>(List.of(ts, ts, date, date, date));
         if (grade != null && !grade.isBlank()) {
             params.add(grade.trim());
         }
 
-        return ApiResponse.success(jdbc.queryForList(sqlQuery, params.toArray()), "Danh mục theo ngày giao");
+        var rows = jdbc.queryForList(sqlQuery, params.toArray());
+        for (var row : rows) {
+            BigDecimal price = (BigDecimal) row.get("price");
+            BigDecimal minOffer = (BigDecimal) row.get("min_offer_price");
+            BigDecimal maxOffer = (BigDecimal) row.get("max_offer_price");
+
+            BigDecimal estMin = minOffer != null ? minOffer : (price != null ? price.multiply(BigDecimal.valueOf(0.95)).setScale(0, RoundingMode.HALF_UP) : BigDecimal.valueOf(20000));
+            BigDecimal estMax = maxOffer != null ? maxOffer : (price != null ? price.multiply(BigDecimal.valueOf(1.05)).setScale(0, RoundingMode.HALF_UP) : BigDecimal.valueOf(30000));
+            BigDecimal ceiling = price != null ? price.multiply(BigDecimal.valueOf(1.10)).setScale(-2, RoundingMode.HALF_UP) : estMax.multiply(BigDecimal.valueOf(1.10)).setScale(-2, RoundingMode.HALF_UP);
+
+            row.put("estimated_price_min", estMin);
+            row.put("estimated_price_max", estMax);
+            row.put("price_ceiling", ceiling);
+            row.put("monthly_contract_guaranteed", true);
+        }
+
+        return ApiResponse.success(rows, "Danh mục theo ngày giao");
     }
     public record Price(@NotNull Long skuId,@NotNull @DecimalMin("0") @Digits(integer=13,fraction=2) BigDecimal price,@NotNull LocalDate date) {}
     @PostMapping("/operations/prices") public ApiResponse<?> price(@AuthenticationPrincipal Actor actor,@Valid @RequestBody Price p) {

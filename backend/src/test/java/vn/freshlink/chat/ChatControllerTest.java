@@ -35,7 +35,7 @@ class ChatControllerTest {
 
         assertTrue(res.success());
         assertTrue(res.data().role().contains("Nhà hàng"));
-        assertTrue(res.data().reply().contains("17:00"));
+        assertTrue(res.data().reply().contains("22:00"));
     }
 
     @Test

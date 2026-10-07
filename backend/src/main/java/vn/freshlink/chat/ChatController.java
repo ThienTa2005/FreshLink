@@ -101,7 +101,7 @@ public class ChatController {
                 - Giới thiệu tổng quan về giải pháp Logistics chuỗi lạnh B2B của FreshLink.
                 - Quy trình tiếp nhận, bảo quản nông sản VietGAP nhiệt độ +2°C ~ +6°C.
                 - Hướng dẫn đăng ký trở thành đối tác Nhà hàng / Khách hàng F&B hoặc Hợp tác xã / Nhà cung cấp.
-                - Giờ chốt đơn chung của hệ thống (17:00 ngày hôm trước cho giao sáng hôm sau).
+                - Giờ chốt đơn chung của hệ thống (22:00 ngày hôm trước cho giao sáng hôm sau).
                 - Chính sách chăm sóc khách hàng và hotline 0123456789.
                 
                 GIỚI HẠN BẢO MẬT NGHIÊM NGẶT:
@@ -127,7 +127,7 @@ public class ChatController {
                 Hotline hỗ trợ CSKH: 0123456789. Zalo: 0123456789.
                 PHẠM VI HỖ TRỢ VÀ DỮ LIỆU ĐƯỢC PHÉP:
                 - Hướng dẫn đặt hàng trên Portal: chọn ngày nhận, giờ nhận (06:00 - 08:00), lưu đơn nháp, quản lý đơn thường mua.
-                - Giờ chốt đơn: 17:00 ngày hôm trước cho đơn ngày hôm sau.
+                - Giờ chốt đơn: 22:00 ngày hôm trước cho đơn ngày hôm sau.
                 - Quy cách sản phẩm: theo sọt bảo ôn, hộp carton, đơn vị tính (KG, GRAM, BUNCH, BOX...).
                 - Hướng dẫn tạo khiếu nại báo thiếu/hàng dập nát: phải báo trong vòng 4 giờ kể từ khi nhận hàng, đính kèm hình ảnh bằng chứng rõ nét.
                 - Hướng dẫn thanh toán và theo dõi công nợ, hóa đơn điện tử tại mục 'Tài chính & Hóa đơn'.
@@ -293,7 +293,7 @@ public class ChatController {
         switch (persona.roleCode) {
             case "RESTAURANT" -> {
                 if (lower.contains("đặt hàng") || lower.contains("giờ chốt") || lower.contains("cutoff") || lower.contains("hạn")) {
-                    return "Giờ chốt đơn hàng ngày là **17:00** cho đơn nhận sáng hôm sau (khung giờ 06:00 - 08:00). Bạn có thể vào tab 'Đặt hàng' để chọn nông sản VietGAP theo danh mục.";
+                    return "Giờ chốt đơn hàng ngày là **22:00** cho đơn nhận sáng hôm sau (khung giờ 06:00 - 08:00). Bạn có thể vào tab 'Đặt hàng' để chọn nông sản VietGAP theo danh mục.";
                 }
                 if (lower.contains("khiếu nại") || lower.contains("hỏng") || lower.contains("thiếu") || lower.contains("dập")) {
                     return "Khi nhận hàng phát hiện nông sản dập nát hoặc thiếu số lượng, vui lòng mở mục **'Khiếu nại'** trong vòng **4 giờ**, chụp hình ảnh thực tế và gửi biên bản để đội CSKH bù trừ tiền ngay trên hóa đơn.";

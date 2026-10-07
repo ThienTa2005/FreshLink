@@ -225,11 +225,95 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
           { name: 'assetId', label: 'Thùng', type: 'select', options: options(assetRows.data, 'asset_id', 'asset_code') }, { name: 'action', label: 'Thao tác', type: 'select', options: [{ value: 'ISSUE', label: 'Cấp thùng cho chuyến' }, { value: 'CLEAN', label: 'Đã vệ sinh và kiểm tra đạt' }] }, { name: 'stopId', label: 'Điểm giao (khi cấp thùng)', type: 'select', required: false, options: options(stopRows.data, 'trip_stop_id', 'label') }, { name: 'note', label: 'Ghi chú' },
         ]} transform={v => ({ action: v.action, stopId: v.action === 'CLEAN' ? null : v.stopId, note: v.note })} /></> },
       ] : []),
-      ...(can('QUALITY_INSPECTOR') || can('OPERATIONS_COORDINATOR') ? [{ key: 'gate', label: 'FreshLink Gate', children: <><DataTable path="/batches" rowKey="batch_id" columns={[[ 'batch_code', 'Mã lô' ], ['sku_name', 'Sản phẩm'], ['declared_quantity', 'Khai báo'], ['accepted_quantity', 'Đạt'], ['allocated_quantity', 'Đã chia'], ['review_quantity', 'Giữ lại'], ['rejected_quantity', 'Từ chối'], ['batch_status', 'Trạng thái']]} actions={r => <Link to={`/portal/batches/${r.batch_id}`}>Mở lô / kiểm nhận / tái kiểm</Link>} />{can('QUALITY_INSPECTOR')&&<ActionForm title="Kiểm nhận lô" path={v => `/batches/${v.batchId}/inspect`} fields={[
-        { name: 'batchId', label: 'Lô chờ kiểm', type: 'select', options: options(batches.data?.filter(b => b.batch_status === 'CREATED'), 'batch_id', 'batch_code') }, { name: 'accepted', label: 'Lượng đạt', type: 'number', initial: 0 }, { name: 'review', label: 'Lượng giữ lại', type: 'number', initial: 0 }, { name: 'rejected', label: 'Lượng từ chối', type: 'number', initial: 0 }, { name: 'note', label: 'Quy cách, bao bì, nhãn, ngoại quan và hướng xử lý', type: 'textarea' },
-        { name: 'evidenceId', label: 'Ảnh kiểm nhận', type: 'file', required: false },
-        ...[['SPECIFICATION', 'Đúng quy cách'], ['PACKAGING', 'Bao bì'], ['LABEL', 'Nhãn'], ['APPEARANCE', 'Ngoại quan']].map(([name, label]) => ({ name, label, type: 'select' as const, initial: 'PASS', options: [{ value: 'PASS', label: 'Đạt' }, { value: 'REVIEW', label: 'Cần kiểm lại' }, { value: 'FAIL', label: 'Không đạt' }] })),
-      ]} transform={v => ({ accepted: v.accepted, review: v.review, rejected: v.rejected, note: v.note, evidenceId: v.evidenceId, checklist: Object.fromEntries(['SPECIFICATION', 'PACKAGING', 'LABEL', 'APPEARANCE'].map(k => [k, v[k]])) })} />}</> }] : []),
+      ...(can('QUALITY_INSPECTOR') || can('OPERATIONS_COORDINATOR') ? [{ key: 'gate', label: 'FreshLink Gate (Tiếp nhận & Kiểm lô)', children: <>
+        <div style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <strong style={{ color: '#135200', fontSize: 14 }}>⏱️ Kiểm soát thời gian lưu trạm Gate (SLA &lt; 3.0h) — Trạm thí điểm Hà Nội</strong>
+              <p style={{ margin: '4px 0 0', color: '#389e0d', fontSize: 13 }}>
+                Mô hình Cross-dock không lưu kho: Tiếp nhận 03:00–05:00 &rarr; Kiểm 3 luồng (Quy cách, Bao bì/Nhãn, Ngoại quan AI) &rarr; Xuất trạm giao nhà hàng trước 08:00. Nghiêm cấm lưu nông sản qua đêm tại trạm.
+              </p>
+            </div>
+            <Space>
+              <Tag color="green" style={{ fontSize: 12, padding: '4px 8px' }}>Tuân thủ SLA &lt; 3h: 100%</Tag>
+              <Tag color="blue" style={{ fontSize: 12, padding: '4px 8px' }}>Lưu trạm qua đêm: 0 lô</Tag>
+            </Space>
+          </div>
+        </div>
+
+        <DataTable path="/batches" rowKey="batch_id" columns={[
+          [ 'batch_code', 'Mã lô' ],
+          ['sku_name', 'Sản phẩm'],
+          ['declared_quantity', 'Khai báo'],
+          ['accepted_quantity', 'Đạt'],
+          ['allocated_quantity', 'Đã chia'],
+          ['review_quantity', 'Giữ lại'],
+          ['rejected_quantity', 'Từ chối'],
+          ['dwell_minutes', 'Lưu trạm (SLA <3h)'],
+          ['batch_status', 'Trạng thái']
+        ]} actions={r => <Link to={`/portal/batches/${r.batch_id}`}>Mở lô / kiểm nhận / tái kiểm</Link>} />
+
+        {can('QUALITY_INSPECTOR') && (
+          <ActionForm
+            title="🤖 AI Quét Ngoại Quan Nông Sản (Rau héo/dập, Nấm đổi màu)"
+            path="/batches/ai-visual-check"
+            fields={[
+              { name: 'batchId', label: 'Lô hàng kiểm tra ngoại quan', type: 'select', options: options(batches.data?.filter(b => b.batch_status === 'CREATED'), 'batch_id', 'batch_code') },
+              { name: 'evidenceFileId', label: 'Ảnh chụp ngoại quan nông sản tại trạm', type: 'file', required: false }
+            ]}
+            transform={v => ({ batchId: Number(v.batchId), evidenceFileId: v.evidenceFileId ? Number(v.evidenceFileId) : null })}
+          />
+        )}
+
+        {can('QUALITY_INSPECTOR') && (
+          <ActionForm
+            title="Biên bản kiểm nhận lô tại Gate (Pass 3 luồng)"
+            path={v => `/batches/${v.batchId}/inspect`}
+            fields={[
+              { name: 'batchId', label: 'Lô chờ kiểm', type: 'select', options: options(batches.data?.filter(b => b.batch_status === 'CREATED'), 'batch_id', 'batch_code') },
+              { name: 'accepted', label: 'Lượng đạt (kg)', type: 'number', initial: 0 },
+              { name: 'review', label: 'Lượng giữ lại / cách ly (kg)', type: 'number', initial: 0 },
+              { name: 'rejected', label: 'Lượng từ chối (gồm hỏng/thiếu)', type: 'number', initial: 0 },
+              { name: 'note', label: 'Quy cách, bao bì, nhãn, ngoại quan AI và hướng xử lý', type: 'textarea' },
+              { name: 'evidenceId', label: 'Ảnh kiểm nhận chứng thực', type: 'file', required: false },
+              ...[['SPECIFICATION', 'Quy cách kỹ thuật'], ['PACKAGING', 'Bao bì & Thùng chuẩn FreshLink'], ['LABEL', 'Nhãn truy xuất QR VietGAP'], ['APPEARANCE', 'Ngoại quan (Không dập, không héo, nấm sáng màu)']].map(([name, label]) => ({
+                name,
+                label,
+                type: 'select' as const,
+                initial: 'PASS',
+                options: [{ value: 'PASS', label: '✓ Đạt chuẩn (PASS)' }, { value: 'REVIEW', label: '⚠️ Cần kiểm lại (REVIEW)' }, { value: 'FAIL', label: '❌ Không đạt (FAIL)' }]
+              }))
+            ]}
+            transform={v => ({
+              accepted: v.accepted,
+              review: v.review,
+              rejected: v.rejected,
+              note: v.note,
+              evidenceId: v.evidenceId,
+              checklist: Object.fromEntries(['SPECIFICATION', 'PACKAGING', 'LABEL', 'APPEARANCE'].map(k => [k, v[k]]))
+            })}
+          />
+        )}
+
+        <div style={{ marginTop: 24 }}>
+          <h4 style={{ margin: '16px 0 8px', color: '#1e293b' }}>📦 Hàng dư thương mại kiểm đạt tại trạm Gate (Tái phân bổ & Bán ưu đãi)</h4>
+          <DataTable
+            path="/operations/surplus-batches"
+            rowKey="batch_id"
+            columns={[
+              ['batch_code', 'Mã lô'],
+              ['sku_name', 'Sản phẩm'],
+              ['supplier_name', 'Hợp tác xã'],
+              ['accepted_quantity', 'Kiểm đạt'],
+              ['allocated_quantity', 'Đã phân bổ'],
+              ['surplus_quantity', 'Lượng dư tại Gate (kg)'],
+              ['dwell_minutes', 'Lưu trạm (phút)'],
+              ['suggested_discount_percent', 'Gợi ý giảm giá cứu nông sản (%)']
+            ]}
+            actions={r => <Link to={`/portal/batches/${r.batch_id}`}>Xem lô</Link>}
+          />
+        </div>
+      </> }] : []),
       ...(can('CUSTOMER_SUPPORT') ? [{ key: 'claims', label: 'Hộp thư CSKH', children: <><Space wrap style={{ marginBottom: 16 }}>
         <select value={cskhStatus} onChange={e => setCskhStatus(e.target.value)} style={{ height: 38, padding: '0 10px', borderRadius: 6 }}>
           <option value="">-- Tất cả trạng thái --</option>
@@ -250,7 +334,7 @@ export default function OperationsPage({ initialTab }: { initialTab?: string }) 
           <input type="checkbox" checked={cskhOverdue} onChange={e => setCskhOverdue(e.target.checked)} />
           <b style={{ color: cskhOverdue ? '#cf1322' : 'inherit' }}>Chỉ quá hạn SLA</b>
         </label>
-      </Space><DataTable path={`/claims/inbox?${cskhStatus ? `status=${cskhStatus}&` : ''}${cskhDept ? `department=${cskhDept}&` : ''}${cskhOverdue ? 'overdueOnly=true&' : ''}`} rowKey="complaint_id" columns={[[ 'complaint_code', 'Mã' ], ['restaurant_name', 'Khách hàng'], ['assigned_department', 'Bộ phận'], ['description', 'Vấn đề'], ['status', 'Trạng thái'], ['first_response_due_at', 'Hạn phản hồi'], ['resolution_due_at', 'Hạn giải quyết']]} actions={r => <Link to={`/portal/claims/${r.complaint_id}`}>Hồ sơ 360°</Link>} /></> }] : []),
+      </Space><DataTable path={`/claims/inbox?${cskhStatus ? `status=${cskhStatus}&` : ''}${cskhDept ? `department=${cskhDept}&` : ''}${cskhOverdue ? 'slaOverdue=true&overdueOnly=true&' : ''}`} rowKey="complaint_id" columns={[[ 'complaint_code', 'Mã' ], ['restaurant_name', 'Khách hàng'], ['assigned_department', 'Bộ phận'], ['description', 'Vấn đề'], ['status', 'Trạng thái'], ['first_response_due_at', 'Hạn phản hồi'], ['resolution_due_at', 'Hạn giải quyết']]} actions={r => <Link to={`/portal/claims/${r.complaint_id}`}>Hồ sơ 360°</Link>} /></> }] : []),
       ...(can('ACCOUNTANT') ? [{ key: 'billing', label: 'Đối soát', children: <><DataTable path="/billing/orders" rowKey="order_id" columns={[[ 'order_id', 'ID' ], ['order_code', 'Đơn'], ['total_amount', 'Phải thu'], ['paid', 'Đã thu'], ['payment_status', 'Trạng thái']]} /><ActionForm title="Thanh toán thủ công" path="/billing/payments" fields={[
         { name: 'orderId', label: 'Đơn hàng', type: 'select', options: options(billOrders.data, 'order_id', 'order_code') }, { name: 'amount', label: 'Số tiền (đ)', type: 'number', min: 0.01 }, { name: 'method', label: 'Phương thức', type: 'select', options: [{ value: 'BANK_TRANSFER', label: 'Chuyển khoản' }, { value: 'CASH', label: 'Tiền mặt' }] }, { name: 'reference', label: 'Mã chứng từ / tham chiếu' },
       ]} /><ActionForm title="Điều chỉnh tiền đơn" path={v => `/billing/orders/${v.orderId}/adjust`} fields={[

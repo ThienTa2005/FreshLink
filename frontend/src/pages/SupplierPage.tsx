@@ -463,6 +463,15 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
               />
 
               <ActionForm
+                title="📸 AI Đọc Tự Động Chứng Chỉ VietGAP / GlobalGAP"
+                path="/supplier/passport/ocr-cert"
+                fields={[
+                  { name: 'fileId', label: 'Tệp hình ảnh chứng chỉ đã tải lên', type: 'file' }
+                ]}
+                transform={v => ({ fileId: Number(v.fileId) })}
+              />
+
+              <ActionForm
                 title="Tải lên hồ sơ chứng nhận & Minh chứng VietGAP"
                 path="/supplier/passport"
                 fields={[
@@ -510,11 +519,10 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
               title="Hệ thống Cổng Kiểm Nhận Gate & Hub Chuỗi Lạnh"
               subtitle="Vị trí các điểm tiếp nhận nông sản đạt chuẩn VietGAP của FreshLink trên toàn quốc"
               hubs={[
-                { hubId: 1, code: 'GATE-HN-01', name: 'Gate KCS #01 - Hub Bắc Thăng Long (Đông Anh)', type: 'CENTRAL_CROSS_DOCK', address: 'KCN Bắc Thăng Long, Huyện Đông Anh, Hà Nội', district: 'Đông Anh', city: 'Hà Nội', latitude: 21.1458, longitude: 105.8452, temperatureC: 3.4, humidityPercent: 88, capacityCrates: 3500, activeTrucks: 18, phone: '0123456789' },
-                { hubId: 2, code: 'GATE-HN-02', name: 'Gate KCS #02 - Hub Hoàng Mai (Ngọc Hồi)', type: 'URBAN_CROSS_DOCK', address: 'Km 12 Đường Ngọc Hồi, Quận Hoàng Mai, Hà Nội', district: 'Hoàng Mai', city: 'Hà Nội', latitude: 20.9572, longitude: 105.8488, temperatureC: 3.8, humidityPercent: 86, capacityCrates: 2200, activeTrucks: 12, phone: '0123456789' },
-                { hubId: 3, code: 'HUB-MC-01', name: 'Hub Thu Gom Nông Sản Mộc Châu (Sơn La)', type: 'REGIONAL_COLLECTION_HUB', address: 'Tiểu khu Vườn Đào, TT. Nông Trường Mộc Châu, Sơn La', district: 'Mộc Châu', city: 'Sơn La', latitude: 20.8436, longitude: 104.6642, temperatureC: 4.1, humidityPercent: 91, capacityCrates: 2800, activeTrucks: 8, phone: '0123456789' },
-                { hubId: 4, code: 'HUB-DL-01', name: 'Hub Công Nghệ Cao Đà Lạt (Lâm Đồng)', type: 'REGIONAL_COLLECTION_HUB', address: 'Đường Vạn Thành, Phường 5, TP. Đà Lạt, Lâm Đồng', district: 'Đà Lạt', city: 'Lâm Đồng', latitude: 11.9404, longitude: 108.4182, temperatureC: 3.8, humidityPercent: 89, capacityCrates: 4000, activeTrucks: 15, phone: '0123456789' },
-                { hubId: 5, code: 'GATE-HCM-01', name: 'Gate KCS #03 - Hub Tây Bắc TP.HCM (Củ Chi)', type: 'CENTRAL_CROSS_DOCK', address: 'KCN Tân Phú Trung, Quốc lộ 22, Củ Chi, TP. Hồ Chí Minh', district: 'Củ Chi', city: 'TP. Hồ Chí Minh', latitude: 10.9632, longitude: 106.5298, temperatureC: 3.6, humidityPercent: 87, capacityCrates: 4200, activeTrucks: 22, phone: '0123456789' }
+                { hubId: 1, code: 'HUB-HN-PILOT', name: 'Hub Trung Chuyển Thí Điểm Cầu Giấy – Đống Đa (Trạm Thí Điểm Duy Nhất)', type: 'PILOT_CROSS_DOCK', address: 'Số 8 Tôn Thất Thuyết, Dịch Vọng Hậu, Cầu Giấy, Hà Nội', district: 'Cầu Giấy', city: 'Hà Nội', latitude: 21.0313, longitude: 105.7834, temperatureC: 3.5, humidityPercent: 88, capacityCrates: 3000, activeTrucks: 12, phone: '0901234567' },
+                { hubId: 2, code: 'HUB-MC-P2', name: 'Hub Mộc Châu (Quy hoạch Giai đoạn 2 - Mô phỏng)', type: 'REGIONAL_COLLECTION_HUB', address: 'Tiểu khu Vườn Đào, TT. Nông Trường Mộc Châu, Sơn La', district: 'Mộc Châu', city: 'Sơn La', latitude: 20.8436, longitude: 104.6642, temperatureC: 4.1, humidityPercent: 91, capacityCrates: 2800, activeTrucks: 8, phone: '0123456789' },
+                { hubId: 3, code: 'HUB-DL-P2', name: 'Hub Đà Lạt (Quy hoạch Giai đoạn 2 - Mô phỏng)', type: 'REGIONAL_COLLECTION_HUB', address: 'Đường Vạn Thành, Phường 5, TP. Đà Lạt, Lâm Đồng', district: 'Đà Lạt', city: 'Lâm Đồng', latitude: 11.9404, longitude: 108.4182, temperatureC: 3.8, humidityPercent: 89, capacityCrates: 4000, activeTrucks: 15, phone: '0123456789' },
+                { hubId: 4, code: 'HUB-HCM-P2', name: 'Hub Củ Chi (Quy hoạch Giai đoạn 2 - Mô phỏng)', type: 'CENTRAL_CROSS_DOCK', address: 'KCN Tân Phú Trung, Quốc lộ 22, Củ Chi, TP. Hồ Chí Minh', district: 'Củ Chi', city: 'TP. Hồ Chí Minh', latitude: 10.9632, longitude: 106.5298, temperatureC: 3.6, humidityPercent: 87, capacityCrates: 4200, activeTrucks: 22, phone: '0123456789' }
               ]}
               height="480px"
               zoom={6}
@@ -696,86 +704,7 @@ export default function SupplierPage({ organizationId, initialTab = 'products' }
               )}
             </div>
           )
-        },
-        {
-          key: 'greenCert',
-          label: '🌿 Chứng Nhận Xanh & ESG',
-          children: (
-            <div style={{ maxWidth: 860 }}>
-              <Card title={
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="material-symbols-outlined" style={{ color: '#059669', fontSize: 26 }}>eco</span>
-                    <span style={{ color: '#065f46', fontWeight: 700 }}>Chứng Nhận Chuỗi Cung Ứng Nông Nghiệp Tuần Hoàn</span>
-                  </div>
-                  <Space>
-                    <Select value={esgPeriod} onChange={setEsgPeriod} options={[
-                      { value: '60_DAYS', label: '2 tháng qua (60 ngày)' },
-                      { value: '30_DAYS', label: '30 ngày gần nhất' },
-                      { value: 'ALL_TIME', label: 'Lũy kế toàn thời gian' }
-                    ]} style={{ width: 190 }} />
-                    <Button type="primary" onClick={openCertificate} style={{ background: '#176b45', fontWeight: 600 }}>
-                      📜 Xem & In Giấy Chứng Nhận Xanh
-                    </Button>
-                  </Space>
-                </div>
-              }>
-                {esgLoading ? (
-                  <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
-                ) : esgSummary && (
-                  <>
-                    <div style={{
-                      background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
-                      border: '1.5px solid #a7f3d0',
-                      borderRadius: 14,
-                      padding: '20px 24px',
-                      marginBottom: 20
-                    }}>
-                      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: '#064e3b', fontWeight: 500 }}>
-                        {esgSummary.impactStatement}
-                      </p>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
-                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                        <div style={{ fontSize: 28 }}>🌿</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
-                          {esgSummary.plasticSavedKg} kg
-                        </div>
-                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Rác bao bì nhựa cắt giảm</div>
-                      </div>
-
-                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                        <div style={{ fontSize: 28 }}>💨</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
-                          {esgSummary.co2SavedKg} kg
-                        </div>
-                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Khí thải CO2e tránh phát sinh</div>
-                      </div>
-
-                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                        <div style={{ fontSize: 28 }}>🔄</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
-                          {esgSummary.cratesCirculated}
-                        </div>
-                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Lượt sọt SmartCrate tuần hoàn</div>
-                      </div>
-
-                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                        <div style={{ fontSize: 28 }}>🚚</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', margin: '4px 0' }}>
-                          {esgSummary.kmOptimized} km
-                        </div>
-                        <div style={{ fontSize: 12.5, color: '#475569', fontWeight: 600 }}>Hành trình gom chuyến tối ưu</div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </Card>
-            </div>
-          )
-        }
-      ]}
+        }      ]}
     />
     <GreenCertificateModal open={certModalOpen} onClose={() => setCertModalOpen(false)} data={certData} />
     </>

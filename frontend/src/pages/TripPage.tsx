@@ -154,6 +154,7 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
   const [offlineNotice, setOfflineNotice] = useState('')
   const [redeliverStopId, setRedeliverStopId] = useState<number | null>(null)
   const [targetTripId, setTargetTripId] = useState<string>('')
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 21.0285, lng: 105.8542 })
   const client = useQueryClient()
   const { membership } = useAuth()
   const isDriver = can(membership, 'DRIVER')
@@ -167,6 +168,7 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
     if ('geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
         async pos => {
+          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
           try {
             await api(`/trips/${selected}/telemetry`, 'POST', {
               latitude: pos.coords.latitude,
@@ -193,11 +195,14 @@ export default function TripPage({ canOptimize = false, initialSelected }: { can
 
   async function handleArrive(stopId: number) {
     try {
-      await api(`/stops/${stopId}/arrive`, 'POST')
+      const stop = stops.find(s => s.trip_stop_id === stopId)
+      const lat = coords.lat ?? (stop?.latitude ? Number(stop.latitude) : 21.0285)
+      const lng = coords.lng ?? (stop?.longitude ? Number(stop.longitude) : 105.8542)
+      await api(`/stops/${stopId}/arrive`, 'POST', { latitude: lat, longitude: lng })
       await query.refetch()
     } catch (e) {
       if (e instanceof ApiError && (e.kind === 'network' || e.kind === 'timeout')) {
-        enqueueOfflineAction(`/stops/${stopId}/arrive`, 'POST', {}, 'Ghi nhận đến điểm giao')
+        enqueueOfflineAction(`/stops/${stopId}/arrive`, 'POST', { latitude: coords.lat, longitude: coords.lng }, 'Ghi nhận đến điểm giao')
         setOfflineNotice('Đã lưu hành động "Đến nơi" vào hàng đợi ngoại tuyến. Sẽ tự động gửi khi có mạng.')
       } else {
         setError((e as Error).message)

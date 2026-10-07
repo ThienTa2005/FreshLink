@@ -16,7 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController @RequestMapping("/api")
 public class RestaurantWorkspaceController {
     private final JdbcTemplate jdbc; private final ObjectMapper json;
-    @Value("${app.order.cutoff:17:00}") private LocalTime cutoff;
+    @Value("${app.order.cutoff:22:00}") private LocalTime cutoff;
     public RestaurantWorkspaceController(JdbcTemplate jdbc,ObjectMapper json){this.jdbc=jdbc;this.json=json;}
     @GetMapping("/public/order-window") public ApiResponse<?> window(){
         var now=ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));

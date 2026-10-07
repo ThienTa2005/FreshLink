@@ -42,36 +42,32 @@ public class HubController {
     @GetMapping("/hubs")
     public ApiResponse<List<ColdChainHub>> getHubs() {
         // Return nationwide real cold-chain logistics hubs and cross-dock centers
+        // FreshLink MVP focuses strictly on 1 Pilot Hub serving Cầu Giấy – Đống Đa (PDF p.15-18)
+        // Nationwide hubs are marked as Phase 2 Roadmap & telemetry is tagged as simulation.
         List<ColdChainHub> hubs = new ArrayList<>(List.of(
             new ColdChainHub(
-                1L, "HUB-HN-01", "Hub Trung Tâm Hà Nội #01 (Bắc Thăng Long)", "CENTRAL_CROSS_DOCK",
-                "KCN Bắc Thăng Long, Huyện Đông Anh", "Đông Anh", "Hà Nội",
-                21.1458, 105.8452,
-                3.4, "+2°C ~ +6°C", 88, 3500, 18, "OPTIMAL", "0123456789", "Trần Đình Trọng"
+                1L, "HUB-HN-PILOT", "Hub Trung Chuyển Thí Điểm Cầu Giấy – Đống Đa (Trạm Thí Điểm Duy Nhất)", "PILOT_CROSS_DOCK",
+                "Số 8 Tôn Thất Thuyết, Dịch Vọng Hậu, Quận Cầu Giấy", "Cầu Giấy", "Hà Nội",
+                21.0313, 105.7834,
+                3.5, "+2°C ~ +6°C (Mô phỏng cảm biến IoT)", 88, 3000, 12, "HOẠT ĐỘNG (Lưu trạm <3h)", "0901234567", "Nguyễn Văn Hùng (Điều phối trưởng)"
             ),
             new ColdChainHub(
-                2L, "HUB-HN-02", "Hub Trung Chuyển Hoàng Mai #02", "URBAN_CROSS_DOCK",
-                "Km 12 Đường Ngọc Hồi, Quận Hoàng Mai", "Hoàng Mai", "Hà Nội",
-                20.9572, 105.8488,
-                3.8, "+2°C ~ +6°C", 86, 2200, 12, "OPTIMAL", "0123456789", "Nguyễn Văn Hùng"
-            ),
-            new ColdChainHub(
-                3L, "HUB-MC-01", "Hub Vùng Nông Sản Mộc Châu (Tây Bắc)", "REGIONAL_COLLECTION_HUB",
+                2L, "HUB-MC-P2", "Hub Nông Sản Mộc Châu (Quy hoạch mở rộng Giai đoạn 2)", "REGIONAL_COLLECTION_HUB",
                 "Tiểu khu Vườn Đào, TT. Nông Trường Mộc Châu", "Mộc Châu", "Sơn La",
                 20.8436, 104.6642,
-                4.1, "+2°C ~ +6°C", 91, 2800, 8, "OPTIMAL", "0123456789", "Lò Văn Muôn"
+                4.1, "+2°C ~ +6°C (Mô phỏng)", 91, 2800, 8, "KẾ HOẠCH GĐ2 (Mô phỏng)", "0123456789", "Lò Văn Muôn"
             ),
             new ColdChainHub(
-                4L, "HUB-DL-01", "Hub Nông Sản Công Nghệ Cao Đà Lạt", "REGIONAL_COLLECTION_HUB",
+                3L, "HUB-DL-P2", "Hub Nông Sản Đà Lạt (Quy hoạch mở rộng Giai đoạn 2)", "REGIONAL_COLLECTION_HUB",
                 "Đường Vạn Thành, Phường 5, TP. Đà Lạt", "Đà Lạt", "Lâm Đồng",
                 11.9404, 108.4182,
-                3.8, "+2°C ~ +6°C", 89, 4000, 15, "OPTIMAL", "0123456789", "Phạm Thị Lan"
+                3.8, "+2°C ~ +6°C (Mô phỏng)", 89, 4000, 15, "KẾ HOẠCH GĐ2 (Mô phỏng)", "0123456789", "Phạm Thị Lan"
             ),
             new ColdChainHub(
-                5L, "HUB-HCM-01", "Hub Trung Tâm Miền Nam (Củ Chi - Tây Bắc TP.HCM)", "CENTRAL_CROSS_DOCK",
+                4L, "HUB-CUCHI-P2", "Hub Nông Sản Củ Chi (Quy hoạch mở rộng Giai đoạn 2)", "CENTRAL_CROSS_DOCK",
                 "KCN Tân Phú Trung, Quốc lộ 22, Củ Chi", "Củ Chi", "TP. Hồ Chí Minh",
                 10.9632, 106.5298,
-                3.6, "+2°C ~ +6°C", 87, 4200, 22, "OPTIMAL", "0123456789", "Lê Hoàng Phúc"
+                3.6, "+2°C ~ +6°C (Mô phỏng)", 87, 4200, 22, "KẾ HOẠCH GĐ2 (Mô phỏng)", "0123456789", "Lê Hoàng Phúc"
             )
         ));
 
